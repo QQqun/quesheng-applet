@@ -60,11 +60,10 @@
 </script>
 
 <style lang="scss">
-	@import '@/uni_modules/uni-scss/index.scss';
+	@import "uview-ui/index.scss";
 	/* #ifndef APP-PLUS-NVUE */
 	/* uni.css - 通用组件、模板样式库，可以当作一套ui库应用 */
 	@import './common/uni.css';
-	@import '@/static/customicons.css';
 	/* H5 兼容 pc 所需 */
 	/* #ifdef H5 */
 	@media screen and (min-width: 768px) {

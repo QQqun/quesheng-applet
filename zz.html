@@ -1,0 +1,368 @@
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>微信积分助手界面复刻</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 flex flex-wrap justify-center gap-[35px] p-[35px]">
+  <!-- 1. 微信授权界面 -->
+  <div class="w-[375px] h-[812px] bg-white border border-gray-200 rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col items-center justify-center p-8">
+    <div class="w-24 h-24 bg-[#22C55E] rounded-2xl flex items-center justify-center mb-6">
+      <span class="iconify text-white text-6xl" data-icon="ri:wechat-fill"></span>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800 mb-4">微信积分助手</h1>
+    <p class="text-center text-gray-500 text-sm leading-relaxed mb-40 px-4">
+      申请获取你的公开信息（昵称、头像等）以便于管理群组积分
+    </p>
+    <button class="w-full bg-[#22C55E] text-white py-4 rounded-xl flex items-center justify-center gap-2 font-medium hover:opacity-90 transition-opacity">
+      <span class="iconify text-xl" data-icon="ri:wechat-fill"></span>
+      微信一键授权
+    </button>
+    <p class="absolute bottom-10 text-xs text-gray-400">
+      授权即表示同意服务协议和隐私政策
+    </p>
+  </div>
+  <!-- 2. 社群运营管理仪表盘 -->
+  <div class="w-[375px] h-[812px] bg-[#F8FAFC] border border-gray-200 rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col">
+    <!-- 顶部用户信息 -->
+    <div class="h-14 flex items-center justify-between px-6 mt-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 border border-gray-100">
+          <img alt="Admin Avatar" class="w-full h-full object-cover" id="img-1" src="https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg">
+        </div>
+        <div>
+          <p class="text-xs text-gray-400">下午好, 2026/01/24</p>
+          <p class="text-sm font-bold text-gray-800">林浩然（管理）</p>
+        </div>
+      </div>
+      <button class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400">
+        <span class="iconify text-xl" data-icon="heroicons:bell"></span>
+      </button>
+    </div>
+    <!-- 数据内容区 -->
+    <div class="flex-1 overflow-y-auto hide-scrollbar px-6 pt-6 pb-24">
+      <!-- 核心指标卡片 -->
+      <div class="bg-gradient-to-br from-[#22C55E] to-[#16A34A] rounded-3xl p-6 text-white shadow-lg shadow-green-100 mb-8 overflow-hidden relative">
+        <div class="relative z-10">
+          <p class="text-sm opacity-90 mb-2">活跃群组总数</p>
+          <div class="flex items-baseline gap-1 mb-6">
+            <span class="text-4xl font-bold">128</span>
+            <span class="text-lg opacity-80">个</span>
+            <span class="iconify ml-1 text-xl" data-icon="heroicons:arrow-up-right-20-solid"></span>
+          </div>
+          <div class="flex justify-between items-center text-xs opacity-90">
+            <span>今日新增积分: +2,450</span>
+            <span>环比昨日: +12%</span>
+          </div>
+        </div>
+        <div class="absolute -right-4 -bottom-4 opacity-10">
+          <span class="iconify text-[120px]" data-icon="heroicons:chart-bar-solid"></span>
+        </div>
+      </div>
+      <!-- 最近活跃群组 -->
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="font-bold text-gray-800">最近活跃群组</h2>
+        <button class="text-[#22C55E] text-sm flex items-center gap-1">
+          <span class="iconify" data-icon="heroicons:plus-circle"></span>
+          添加群组
+        </button>
+      </div>
+      <!-- 群组列表 -->
+      <div class="space-y-4">
+        <div class="bg-white p-4 rounded-3xl flex items-center gap-4 shadow-sm border border-gray-50">
+          <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
+            <span class="iconify text-2xl" data-icon="heroicons:user-group"></span>
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-gray-800">核心运营交流群</p>
+            <p class="text-xs text-gray-400">48人 · 523,000 积分</p>
+          </div>
+          <span class="iconify text-gray-300" data-icon="heroicons:chevron-right"></span>
+        </div>
+        <div class="bg-white p-4 rounded-3xl flex items-center gap-4 shadow-sm border border-gray-50">
+          <div class="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500">
+            <span class="iconify text-2xl" data-icon="heroicons:gift"></span>
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-gray-800">福利好物分享群</p>
+            <p class="text-xs text-gray-400">256人 · 1,204,500 积分</p>
+          </div>
+          <span class="iconify text-gray-300" data-icon="heroicons:chevron-right"></span>
+        </div>
+        <div class="bg-white p-4 rounded-3xl flex items-center gap-4 shadow-sm border border-gray-50">
+          <div class="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500">
+            <span class="iconify text-2xl" data-icon="heroicons:sparkles"></span>
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-gray-800">VIP私享俱乐部</p>
+            <p class="text-xs text-gray-400">12人 · 89,200 积分</p>
+          </div>
+          <span class="iconify text-gray-300" data-icon="heroicons:chevron-right"></span>
+        </div>
+      </div>
+    </div>
+    <!-- 底部导航栏 -->
+    <div class="absolute bottom-0 w-full h-20 bg-white border-t border-gray-100 flex items-center justify-around px-2">
+      <div class="flex flex-col items-center gap-1 text-[#22C55E]">
+        <span class="iconify text-2xl" data-icon="heroicons:home-solid"></span>
+        <span class="text-[10px] font-medium">首页</span>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-gray-400">
+        <span class="iconify text-2xl" data-icon="heroicons:squares-2x2"></span>
+        <span class="text-[10px]">群组</span>
+      </div>
+      <div class="w-14 h-14 bg-[#22C55E] rounded-full flex items-center justify-center text-white shadow-lg -mt-8 border-[4px] border-white">
+        <span class="iconify text-3xl" data-icon="ri:qr-code-line"></span>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-gray-400">
+        <span class="iconify text-2xl" data-icon="heroicons:chart-bar"></span>
+        <span class="text-[10px]">统计</span>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-gray-400">
+        <span class="iconify text-2xl" data-icon="heroicons:user"></span>
+        <span class="text-[10px]">我的</span>
+      </div>
+    </div>
+  </div>
+  <!-- 3. 核心运营交流群成员管理界面 -->
+  <div class="w-[375px] h-[812px] bg-white border border-gray-200 rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col">
+    <!-- 顶部导航 -->
+    <div class="h-14 flex items-center px-4 relative border-b border-gray-50">
+      <span class="iconify text-xl text-gray-800" data-icon="heroicons:chevron-left"></span>
+      <h2 class="absolute left-1/2 -translate-x-1/2 font-bold text-gray-800">核心运营交流群</h2>
+    </div>
+    <!-- Tab栏 -->
+    <div class="flex h-12 border-b border-gray-50">
+      <div class="flex-1 flex flex-col items-center justify-center text-[#22C55E] relative">
+        <span class="text-sm font-bold">成员管理</span>
+        <div class="absolute bottom-0 w-16 h-1 bg-[#22C55E] rounded-t-full"></div>
+      </div>
+      <div class="flex-1 flex items-center justify-center text-gray-400">
+        <span class="text-sm">积分规则</span>
+      </div>
+    </div>
+    <!-- 内容区 -->
+    <div class="flex-1 overflow-y-auto hide-scrollbar p-5">
+      <!-- 搜索框 -->
+      <div class="relative mb-6">
+        <input class="w-full bg-gray-50 border-none rounded-2xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-green-100 outline-none" placeholder="搜索成员..." type="text">
+        <span class="iconify absolute left-4 top-3.5 text-gray-400 text-lg" data-icon="heroicons:magnifying-glass"></span>
+      </div>
+      <!-- 成员列表 -->
+      <div class="space-y-6">
+        <!-- 成员1 -->
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
+            <img alt="User 1" class="w-full h-full object-cover" id="img-2" src="https://modao.cc/agent-py/media/generated_images/2026-01-24/51eeea28e5c4424eadf424f3d5e373a2.jpg">
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-gray-800">张晓萌</p>
+            <p class="text-[10px] text-gray-400">等级: LV.5 · 最近活跃: 10分钟</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[#22C55E] font-bold">2,456 pt</p>
+            <button class="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded-md mt-1">录入积分</button>
+          </div>
+        </div>
+        <!-- 成员2 -->
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
+            <img alt="User 2" class="w-full h-full object-cover" id="img-3" src="/agent/placeholder.svg">
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-gray-800">王大卫</p>
+            <p class="text-[10px] text-gray-400">等级: LV.3 · 最近活跃: 2小时</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[#22C55E] font-bold">1,120 pt</p>
+            <button class="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded-md mt-1">录入积分</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 底部批量操作 -->
+    <div class="p-5 bg-white border-t border-gray-100">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-gray-800">快速批量增减</h3>
+        <span class="text-xs text-gray-400">已选 3 位成员</span>
+      </div>
+      <div class="grid grid-cols-4 gap-3">
+        <button class="bg-gray-50 py-3 rounded-xl border border-gray-100 text-gray-600 font-bold">-10</button>
+        <button class="bg-gray-50 py-3 rounded-xl border border-gray-100 text-gray-600 font-bold">-50</button>
+        <button class="bg-[#22C55E] py-3 rounded-xl text-white font-bold shadow-md shadow-green-100">+50</button>
+        <button class="bg-[#059669] py-3 rounded-xl text-white font-bold shadow-md shadow-green-100">+100</button>
+      </div>
+    </div>
+  </div>
+  <!-- 4. 积分趋势分析仪表盘 -->
+  <div class="w-[375px] h-[812px] bg-[#F8FAFC] border border-gray-200 rounded-[40px] shadow-2xl overflow-hidden relative flex flex-col p-6">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-800 mb-1">积分趋势分析</h1>
+      <p class="text-xs text-gray-400">数据统计周期: 2026/01/01 - 2026/01/24</p>
+    </div>
+    <!-- 折线图卡片 -->
+    <div class="bg-white rounded-[32px] p-5 shadow-sm mb-6">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-1.5 h-4 bg-[#22C55E] rounded-full"></div>
+        <h2 class="text-sm font-bold text-gray-800">每日积分增长</h2>
+      </div>
+      <div class="w-full h-40" id="lineChart"></div>
+    </div>
+    <!-- 数据卡片网格 -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="bg-white rounded-[24px] p-4 shadow-sm relative overflow-hidden">
+        <span class="iconify text-blue-500 absolute top-4 right-4 text-xl" data-icon="heroicons:users"></span>
+        <p class="text-xs text-gray-400 mb-2">活跃会员</p>
+        <div class="flex items-baseline gap-1">
+          <span class="text-xl font-bold text-gray-800">1,280</span>
+          <span class="text-[10px] text-blue-500">+4</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-[24px] p-4 shadow-sm relative overflow-hidden">
+        <span class="iconify text-purple-500 absolute top-4 right-4 text-xl" data-icon="ri:hand-coin-line"></span>
+        <p class="text-xs text-gray-400 mb-2">平均贡献</p>
+        <span class="text-xl font-bold text-gray-800">423 pt</span>
+      </div>
+    </div>
+    <!-- 环形图卡片 -->
+    <div class="bg-white rounded-[32px] p-5 shadow-sm flex-1 mb-4 flex flex-col">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-1.5 h-4 bg-orange-500 rounded-full"></div>
+        <h2 class="text-sm font-bold text-gray-800">活跃时段分布</h2>
+      </div>
+      <div class="w-full flex-1" id="pieChart"></div>
+      <div class="flex justify-center gap-4 mt-2">
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-[#60A5FA]"></div>
+          <span class="text-[10px] text-gray-500">上午</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-[#FB923C]"></div>
+          <span class="text-[10px] text-gray-500">下午</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-[#A78BFA]"></div>
+          <span class="text-[10px] text-gray-500">晚上</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // 初始化折线图
+    const lineDom = document.getElementById('lineChart');
+    const lineChart = echarts.init(lineDom);
+    lineChart.setOption({
+      grid: {
+        top: 10,
+        bottom: 25,
+        left: 30,
+        right: 10
+      },
+      xAxis: {
+        type: 'category',
+        data: ['01-18', '01-20', '01-22', '今日'],
+        axisLine: {
+          show: false
+        },
+        axisTick: {
+          show: false
+        },
+        axisLabel: {
+          color: '#94a3b8',
+          fontSize: 10
+        }
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: {
+          lineStyle: {
+            type: 'dashed',
+            color: '#f1f5f9'
+          }
+        },
+        axisLabel: {
+          color: '#94a3b8',
+          fontSize: 10
+        }
+      },
+      series: [{
+        data: [120, 200, 80, 210],
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        itemStyle: {
+          color: '#22C55E'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+              offset: 0,
+              color: 'rgba(34, 197, 94, 0.2)'
+            },
+            {
+              offset: 1,
+              color: 'rgba(34, 197, 94, 0)'
+            }
+          ])
+        }
+      }]
+    });
+
+    // 初始化环形图
+    const pieDom = document.getElementById('pieChart');
+    const pieChart = echarts.init(pieDom);
+    pieChart.setOption({
+      series: [{
+        type: 'pie',
+        radius: ['50%', '80%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: false
+        },
+        data: [{
+            value: 40,
+            itemStyle: {
+              color: '#60A5FA'
+            }
+          },
+          {
+            value: 35,
+            itemStyle: {
+              color: '#FB923C'
+            }
+          },
+          {
+            value: 25,
+            itemStyle: {
+              color: '#A78BFA'
+            }
+          }
+        ]
+      }]
+    });
+  </script>
+
+
+</body>
+
+</html>
