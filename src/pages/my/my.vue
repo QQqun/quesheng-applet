@@ -49,7 +49,7 @@ export default {
     // 跳转到数据统计页面
     goToStatistics() {
       uni.navigateTo({
-        url: '/pages/statistics/index'
+        url: '/pkg-statistics/statistics/pages/index'
       })
     },
     // 退出登录

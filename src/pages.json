@@ -27,14 +27,17 @@
 			"style": {
 				"navigationBarTitleText": "我的"
 			}
-		},
-		{
-			"path": "pages/statistics/index",
+		}
+	],
+	"subPackages": [{
+		"root": "pkg-statistics",
+		"pages": [{
+			"path": "statistics/pages/index",
 			"style": {
 				"navigationBarTitleText": "积分统计"
 			}
-		}
-	],
+		}]
+	}],
 	"globalStyle": {
 		"pageOrientation": "portrait",
 		"navigationBarTitleText": "雀圣小程序",
