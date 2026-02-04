@@ -2,7 +2,7 @@
   <view class="my-container">
     <!-- 用户信息 -->
     <view class="user-info">
-      <image :src="userInfo.avatarUrl || '/static/user.png'" class="avatar"></image>
+      <image :src="userInfo.avatarUrl" class="avatar"></image>
       <view class="user-detail">
         <view class="nickname">{{ userInfo.nickName || '未设置昵称' }}</view>
         <view class="phone">{{ userInfo.phone || '未绑定手机号' }}</view>
@@ -49,7 +49,7 @@ export default {
     // 跳转到数据统计页面
     goToStatistics() {
       uni.navigateTo({
-        url: '/pages/statistics/statistics'
+        url: '/pages/statistics/index'
       })
     },
     // 退出登录

@@ -59,12 +59,12 @@
         <view class="group-list-container">
           <!-- 如果有真实数据则遍历，否则显示静态示例保持界面还原 -->
           <block v-if="groups.length > 0">
-            <view v-for="(group, index) in groups" :key="group._id || index" class="group-card" @click="goToGroupDetail(group._id)">
+            <view v-for="(group) in groups" :key="group.id" class="group-card" @click="goToGroupDetail(group.id)">
               <view class="group-icon-box bg-blue-50 text-blue-500">
                 <u-icon name="account-fill" size="24" color="#3b82f6"></u-icon>
               </view>
               <view class="group-info">
-                <view class="group-name">{{ group.name }}</view>
+                <view class="group-name">{{ group.groupName }}</view>
                 <view class="group-desc">{{ group.members ? group.members.length : 0 }}人 · {{ group.points || 0 }} 积分</view>
               </view>
               <u-icon name="arrow-right" color="#d1d5db" size="16"></u-icon>
@@ -131,8 +131,6 @@ export default {
   onLoad() {
     // 获取用户信息
     this.getUserInfo()
-    // 获取最近使用的群组
-    this.getRecentGroups()
   },
   onShow() {
     // 刷新数据
@@ -154,32 +152,18 @@ export default {
     },
     // 获取最近使用的群组
     getRecentGroups() {
-      // uni.request({
-      //   url: 'http://localhost:3000/api/groups/recent',
-      //   method: 'GET',
-      //   header: {
-      //     'Authorization': 'Bearer ' + uni.getStorageSync('token')
-      //   },
-      //   success: (res) => {
-      //     if (res.data.code === 200) {
-      //       this.groups = res.data.data
-      //     }
-      //   },
-      //   fail: (err) => {
-      //     uni.showToast({
-      //       title: '获取群组失败',
-      //       icon: 'none'
-      //     })
-      //   }
-      // })
+      const groups = uni.getStorageSync('groups')
+      this.groups = groups
     },
+
     // 跳转到群组详情
     goToGroupDetail(groupId) {
       if (!groupId) return;
       uni.navigateTo({
-        url: '/pages/group-detail/group-detail?id=' + groupId
+        url: '/pages/group/index?id=' + groupId
       })
     },
+
     // 跳转到群组列表
     goToGroupList() {
       uni.navigateTo({
@@ -216,10 +200,9 @@ export default {
       }
       groups.push(group)
       uni.setStorageSync('groups', groups)
+      this.groups = groups
       this.showAddDialog = false
-      uni.navigateTo({
-        url: `/pages/group/index?groupId=${group.id}`
-      })
+      this.goToGroupDetail(group.id)
     }
   }
 }

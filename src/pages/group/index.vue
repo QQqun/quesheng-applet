@@ -5,6 +5,20 @@
       <text class="title">群组详情</text>
     </view>
     
+    <!-- 日期选择 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">选择日期</text>
+      </view>
+      <view class="date-picker" @click="showCalendar = true">
+        <view class="date-display">
+          <text>{{ date }}</text>
+          <u-icon name="calendar" color="#9ca3af" size="16"></u-icon>
+        </view>
+      </view>
+      <u-calendar :show="showCalendar" color="#22C55E" :min-date="minDate" :max-date="maxDate" @close="showCalendar = false" @confirm="handleCalendarConfirm"></u-calendar>
+    </view>
+    
     <!-- 成员列表 -->
     <view class="section">
       <view class="section-header">
@@ -28,20 +42,6 @@
           </view>
         </view>
       </view>
-    </view>
-    
-    <!-- 日期选择 -->
-    <view class="section">
-      <view class="section-header">
-        <text class="section-title">选择日期</text>
-      </view>
-      <view class="date-picker" @click="showCalendar = true">
-        <view class="date-display">
-          <text>{{ date }}</text>
-          <u-icon name="calendar" color="#9ca3af" size="16"></u-icon>
-        </view>
-      </view>
-      <u-calendar :show="showCalendar" color="#22C55E" @close="showCalendar = false" @confirm="handleCalendarConfirm"></u-calendar>
     </view>
     
     <!-- 保存按钮 -->
@@ -73,7 +73,10 @@ export default {
     return {
       groupId: '',
       users: [],
+      members: [],
       date: '',
+      minDate: '2026-01-01',
+      maxDate: '',
       showAddMemberDialog: false,
       newMemberName: '',
       showCalendar: false
@@ -88,6 +91,7 @@ export default {
     // 设置默认日期为当前日期
     const today = new Date();
     this.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    this.maxDate = this.date;
     
     // 初始化数据
     this.initData();
@@ -95,13 +99,51 @@ export default {
   methods: {
     // 初始化数据
     initData() {
-      // 从缓存中获取数据
+      this.loadMembers();
+      this.loadDataByDate();
+    },
+    
+    // 从历史数据中加载成员列表
+    loadMembers() {
       const cachedData = uni.getStorageSync('groupData') || [];
-      const groupData = cachedData.find(item => item.groupId === this.groupId);
+      const groupRecord = cachedData.find(item => item.groupId === this.groupId);
       
-      if (groupData) {
-        this.users = groupData.users || [];
-        this.date = groupData.date || this.date;
+      if (groupRecord && groupRecord.data) {
+        // 从所有日期数据中收集成员
+        const memberSet = new Set();
+        groupRecord.data.forEach(dateData => {
+          dateData.users.forEach(user => {
+            memberSet.add(user.name);
+          });
+        });
+        this.members = Array.from(memberSet).map(name => ({ name }));
+      } else {
+        this.members = [];
+      }
+    },
+    
+    // 根据日期加载数据
+    loadDataByDate() {
+      const cachedData = uni.getStorageSync('groupData') || [];
+      const groupRecord = cachedData.find(item => item.groupId === this.groupId);
+      
+      if (groupRecord && groupRecord.data) {
+        const dateData = groupRecord.data.find(item => item.date === this.date);
+        if (dateData) {
+          this.users = dateData.users || [];
+        } else {
+          // 如果该日期没有数据，使用默认成员列表
+          this.users = this.members.map(member => ({
+            name: member.name,
+            score: 0
+          }));
+        }
+      } else {
+        // 如果该群组没有数据，使用默认成员列表
+        this.users = this.members.map(member => ({
+          name: member.name,
+          score: 0
+        }));
       }
     },
     
@@ -120,9 +162,26 @@ export default {
         return;
       }
       
-      // 添加新成员
+      const memberName = this.newMemberName.trim();
+      
+      // 检查是否已存在该成员
+      const exists = this.members.some(m => m.name === memberName);
+      if (exists) {
+        uni.showToast({
+          title: '该成员已存在',
+          icon: 'none'
+        });
+        return;
+      }
+      
+      // 添加到成员列表
+      this.members.push({
+        name: memberName
+      });
+      
+      // 添加到当前用户列表
       this.users.push({
-        name: this.newMemberName.trim(),
+        name: memberName,
         score: 0
       });
       
@@ -133,8 +192,10 @@ export default {
     
     // 处理日历选择确认
     handleCalendarConfirm(e) {
-      this.date = e.date;
+      console.log(e);
+      this.date = e[0];
       this.showCalendar = false;
+      this.loadDataByDate();
     },
     
     // 保存数据
@@ -147,26 +208,36 @@ export default {
         return;
       }
       
-      // 准备保存的数据
-      const dataToSave = {
-        id: getUuid(),
-        groupId: this.groupId,
-        date: this.date,
-        users: this.users
-      };
-      
       // 从缓存中获取现有数据
       let cachedData = uni.getStorageSync('groupData') || [];
       
       // 查找是否已存在该群组的数据
-      const existingIndex = cachedData.findIndex(item => item.groupId === this.groupId);
+      const groupIndex = cachedData.findIndex(item => item.groupId === this.groupId);
       
-      if (existingIndex !== -1) {
-        // 更新现有数据
-        cachedData[existingIndex] = dataToSave;
+      // 当前日期的数据
+      const dateData = {
+        date: this.date,
+        users: this.users
+      };
+      
+      if (groupIndex !== -1) {
+        // 已存在该群组，更新或添加日期数据
+        const dateIndex = cachedData[groupIndex].data.findIndex(item => item.date === this.date);
+        if (dateIndex !== -1) {
+          // 更新已有日期的数据
+          cachedData[groupIndex].data[dateIndex] = dateData;
+        } else {
+          // 添加新日期的数据
+          cachedData[groupIndex].data.push(dateData);
+        }
       } else {
-        // 添加新数据
-        cachedData.push(dataToSave);
+        // 创建新群组记录
+        const newGroupRecord = {
+          id: getUuid(),
+          groupId: this.groupId,
+          data: [dateData]
+        };
+        cachedData.push(newGroupRecord);
       }
       
       // 保存到缓存
@@ -177,11 +248,6 @@ export default {
         title: '保存成功',
         icon: 'success'
       });
-      
-      // 返回上一页
-      setTimeout(() => {
-        uni.navigateBack();
-      }, 1500);
     }
   }
 }
