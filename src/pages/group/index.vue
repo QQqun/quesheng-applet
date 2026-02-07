@@ -1,10 +1,5 @@
 <template>
   <view class="page-container">
-    <!-- 页面标题 -->
-    <view class="header">
-      <text class="title">群组详情</text>
-    </view>
-    
     <!-- 日期选择 -->
     <view class="section">
       <view class="section-header">
@@ -38,7 +33,7 @@
         <view v-else class="member-item" v-for="(user, index) in users" :key="index">
           <text class="member-name">{{ user.name }}</text>
           <view class="score-input">
-            <u-input v-model="user.score" type="number" placeholder="0" border="surround" style="width: 100px;"></u-input>
+            <u-input v-model="user.score" type="text" placeholder="0" border="surround" style="width: 100px;"></u-input>
           </view>
         </view>
       </view>
