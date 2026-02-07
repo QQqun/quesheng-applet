@@ -31,9 +31,21 @@
           <text class="empty-text">暂无成员，请添加</text>
         </view>
         <view v-else class="member-item" v-for="(user, index) in users" :key="index">
-          <text class="member-name">{{ user.name }}</text>
+          <view class="member-name-wrapper" @tap="handleNameTap(index)">
+            <u-input 
+              v-if="editingNameIndex === index" 
+              v-model="user.name" 
+              type="text" 
+              :border="false"
+              :focus="true"
+              @blur="finishEditName(index)"
+              @confirm="finishEditName(index)"
+              style="font-size: 16px; color: #1f2937;"
+            ></u-input>
+            <text v-else class="member-name">{{ user.name }}</text>
+          </view>
           <view class="score-input">
-            <u-input v-model="user.score" type="text" placeholder="0" border="surround" style="width: 100px;"></u-input>
+            <u-input v-model="user.score" type="text" :showWordLimit="true" placeholder="0" border="surround" style="width: 100px;"></u-input>
           </view>
         </view>
       </view>
@@ -74,7 +86,8 @@ export default {
       maxDate: '',
       showAddMemberDialog: false,
       newMemberName: '',
-      showCalendar: false
+      showCalendar: false,
+      editingNameIndex: -1
     }
   },
   onLoad(options) {
@@ -98,23 +111,25 @@ export default {
       this.loadDataByDate();
     },
     
-    // 从历史数据中加载成员列表
     loadMembers() {
+      const userInfo = uni.getStorageSync('userInfo') || {};
+      const currentUser = userInfo.nickName || userInfo.username || '雀圣';
+      
       const cachedData = uni.getStorageSync('groupData') || [];
       const groupRecord = cachedData.find(item => item.groupId === this.groupId);
       
+      const memberSet = new Set();
+      memberSet.add(currentUser);
+      
       if (groupRecord && groupRecord.data) {
-        // 从所有日期数据中收集成员
-        const memberSet = new Set();
         groupRecord.data.forEach(dateData => {
           dateData.users.forEach(user => {
             memberSet.add(user.name);
           });
         });
-        this.members = Array.from(memberSet).map(name => ({ name }));
-      } else {
-        this.members = [];
       }
+      
+      this.members = Array.from(memberSet).map(name => ({ name }));
     },
     
     // 根据日期加载数据
@@ -140,11 +155,6 @@ export default {
           score: 0
         }));
       }
-    },
-    
-    // 显示添加成员弹窗
-    showAddMemberDialog() {
-      this.showAddMemberDialog = true;
     },
     
     // 添加成员
@@ -191,6 +201,55 @@ export default {
       this.date = e[0];
       this.showCalendar = false;
       this.loadDataByDate();
+    },
+    
+    // 点击名字开始编辑
+    handleNameTap(index) {
+      this.editingNameIndex = index;
+    },
+    
+    // 完成名字编辑
+    finishEditName(index) {
+      const oldName = this.members[index]?.name || this.users[index]?.name;
+      const newName = this.users[index]?.name?.trim();
+      
+      if (!newName) {
+        uni.showToast({
+          title: '名字不能为空',
+          icon: 'none'
+        });
+        this.users[index].name = oldName;
+        this.editingNameIndex = -1;
+        return;
+      }
+      
+      if (oldName !== newName) {
+        if (this.members[index]) {
+          this.members[index].name = newName;
+        }
+        this.updateNameInCache(oldName, newName);
+      }
+      
+      this.editingNameIndex = -1;
+    },
+    
+    // 更新缓存中的名字
+    updateNameInCache(oldName, newName) {
+      const cachedData = uni.getStorageSync('groupData') || [];
+      const groupIndex = cachedData.findIndex(item => item.groupId === this.groupId);
+      
+      if (groupIndex !== -1) {
+        cachedData[groupIndex].data.forEach(dateData => {
+          dateData.users.forEach(user => {
+            if (user.name === oldName) {
+              user.name = newName;
+            }
+          });
+        });
+        uni.setStorageSync('groupData', cachedData);
+      }
+      
+      this.loadMembers();
     },
     
     // 保存数据

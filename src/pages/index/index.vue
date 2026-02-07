@@ -14,8 +14,8 @@
             ></image>
           </view>
           <view>
-            <view class="greeting-text">下午好, 2026/01/24</view>
-            <view class="username-text">{{ userInfo.nickName || '林浩然（管理）' }}</view>
+            <view class="greeting-text">{{ greetingText }}</view>
+            <view class="username-text">{{ userInfo.nickName || '未设置昵称' }}</view>
           </view>
         </view>
         <view class="notification-btn">
@@ -26,23 +26,42 @@
       <!-- 数据内容区 (对应 zz.html lines 58-118) -->
       <scroll-view scroll-y class="content-scroll-area">
         
-        <!-- 核心指标卡片 (对应 zz.html lines 60-76) -->
         <view class="core-metrics-card">
           <view class="metrics-content">
-            <view class="metrics-label">活跃群组总数</view>
+            <view class="metrics-label">累计积分</view>
             <view class="metrics-value-row">
-              <text class="metrics-num">{{ groups.length || 128 }}</text>
-              <text class="metrics-unit">个</text>
-              <u-icon name="arrow-upward" color="#ffffff" size="18" style="margin-left: 4px;"></u-icon>
+              <text class="metrics-num">{{ totalScore }}</text>
+              <text class="metrics-unit">分</text>
             </view>
             <view class="metrics-footer">
-              <text>今日新增积分: +2,450</text>
-              <text style="margin-left: 10px;">环比昨日: +12%</text>
+              <text>今日: {{ todayScore >= 0 ? '+' : '' }}{{ todayScore }}</text>
+              <text style="margin-left: 10px;">本周: {{ weekScore >= 0 ? '+' : '' }}{{ weekScore }}</text>
+              <text style="margin-left: 10px;">本月: {{ monthScore >= 0 ? '+' : '' }}{{ monthScore }}</text>
             </view>
           </view>
-          <!-- 背景图标装饰 -->
           <view class="card-bg-icon">
             <u-icon name="grid-fill" size="120" color="rgba(255,255,255,0.1)"></u-icon>
+          </view>
+        </view>
+        
+        <view class="stats-grid">
+          <view class="stat-item">
+            <view class="stat-icon" style="background-color: #eff6ff;">
+              <u-icon name="grid-fill" size="24" color="#3b82f6"></u-icon>
+            </view>
+            <view class="stat-info">
+              <text class="stat-label">活跃群组</text>
+              <text class="stat-value">{{ activeGroupCount || groups.length || 0 }}</text>
+            </view>
+          </view>
+          <view class="stat-item">
+            <view class="stat-icon" style="background-color: #fef3c7;">
+              <u-icon name="account-fill" size="24" color="#f59e0b"></u-icon>
+            </view>
+            <view class="stat-info">
+              <text class="stat-label">活跃成员</text>
+              <text class="stat-value">{{ activeMemberCount }}</text>
+            </view>
           </view>
         </view>
 
@@ -55,31 +74,28 @@
           </view>
         </view>
 
-        <!-- 群组列表 (对应 zz.html lines 86-117) -->
         <view class="group-list-container">
-          <!-- 如果有真实数据则遍历，否则显示静态示例保持界面还原 -->
-          <block v-if="groups.length > 0">
-            <view v-for="(group) in groups" :key="group.id" class="group-card" @click="goToGroupDetail(group.id)">
+          <block v-if="groupsWithStats.length > 0">
+            <view v-for="(group) in groupsWithStats" :key="group.id" class="group-card" @click="goToGroupDetail(group.id)">
               <view class="group-icon-box bg-blue-50 text-blue-500">
                 <u-icon name="account-fill" size="24" color="#3b82f6"></u-icon>
               </view>
               <view class="group-info">
                 <view class="group-name">{{ group.groupName }}</view>
-                <view class="group-desc">{{ group.members ? group.members.length : 0 }}人 · {{ group.points || 0 }} 积分</view>
+                <view class="group-desc">{{ group.memberCount }}人 · 我的积分: {{ group.userScore >= 0 ? '+' : '' }}{{ group.userScore }}</view>
               </view>
               <u-icon name="arrow-right" color="#d1d5db" size="16"></u-icon>
             </view>
           </block>
           
           <block v-else>
-            <!-- 静态示例数据，当没有真实数据时显示 -->
             <view class="group-card">
               <view class="group-icon-box" style="background-color: #eff6ff;">
                  <u-icon name="account-fill" size="24" color="#3b82f6"></u-icon>
               </view>
               <view class="group-info">
                 <view class="group-name">核心运营交流群</view>
-                <view class="group-desc">48人 · 523,000 积分</view>
+                <view class="group-desc">48人 · 我的积分: +0</view>
               </view>
               <u-icon name="arrow-right" color="#d1d5db" size="16"></u-icon>
             </view>
@@ -89,7 +105,7 @@
               </view>
               <view class="group-info">
                 <view class="group-name">福利好物分享群</view>
-                <view class="group-desc">256人 · 1,204,500 积分</view>
+                <view class="group-desc">256人 · 我的积分: +0</view>
               </view>
               <u-icon name="arrow-right" color="#d1d5db" size="16"></u-icon>
             </view>
@@ -123,18 +139,24 @@ export default {
     return {
       userInfo: {},
       groups: [],
-      // displayedGroups: [],
+      groupsWithStats: [],
       showAddDialog: false,
-      groupName: ''
+      groupName: '',
+      greetingText: '',
+      todayScore: 0,
+      weekScore: 0,
+      monthScore: 0,
+      totalScore: 0,
+      activeGroupCount: 0,
+      activeMemberCount: 0
     }
   },
-  onLoad() {
-    // 获取用户信息
-    this.getUserInfo()
-  },
+
   onShow() {
-    // 刷新数据
+    this.getUserInfo()
     this.getRecentGroups()
+    this.loadStatistics()
+    this.updateGreeting()
   },
   computed: {
     // 计算显示的群组，最多显示4个
@@ -148,12 +170,110 @@ export default {
       const userInfo = uni.getStorageSync('userInfo')
       if (userInfo) {
         this.userInfo = userInfo
+      } else {
+        this.userInfo = {
+          nickName: '未设置昵称',
+          avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
+        }
       }
     },
-    // 获取最近使用的群组
     getRecentGroups() {
       const groups = uni.getStorageSync('groups')
       this.groups = groups
+    },
+    
+    updateGreeting() {
+      const now = new Date()
+      const hour = now.getHours()
+      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`
+      
+      let greeting = ''
+      if (hour < 6) {
+        greeting = '夜深了'
+      } else if (hour < 12) {
+        greeting = '早上好'
+      } else if (hour < 14) {
+        greeting = '中午好'
+      } else if (hour < 18) {
+        greeting = '下午好'
+      } else {
+        greeting = '晚上好'
+      }
+      
+      this.greetingText = `${greeting}, ${dateStr}`
+    },
+    
+    loadStatistics() {
+      const groupData = uni.getStorageSync('groupData') || []
+      const today = new Date()
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+      
+      const weekStart = new Date(today)
+      const dayOfWeek = today.getDay() || 7
+      weekStart.setDate(today.getDate() - dayOfWeek + 1)
+      const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
+      
+      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+      
+      const userName = this.userInfo.nickName || '雀圣'
+      
+      let todayTotal = 0
+      let weekTotal = 0
+      let monthTotal = 0
+      let total = 0
+      const activeGroups = new Set()
+      const activeMembers = new Set()
+      
+      const groupStats = {}
+      
+      groupData.forEach(groupRecord => {
+        if (groupRecord.data) {
+          const groupMembers = new Set()
+          let userTotalScore = 0
+          
+          groupRecord.data.forEach(dateData => {
+            if (dateData.users && dateData.users.length > 0) {
+              activeGroups.add(groupRecord.groupId)
+              dateData.users.forEach(user => {
+                groupMembers.add(user.name)
+                activeMembers.add(user.name)
+                const score = parseInt(user.score) || 0
+                if (user.name === userName) {
+                  userTotalScore += score
+                  total += score
+                  if (dateData.date === todayStr) {
+                    todayTotal += score
+                  }
+                  if (dateData.date >= weekStartStr) {
+                    weekTotal += score
+                  }
+                  if (dateData.date.startsWith(monthStart)) {
+                    monthTotal += score
+                  }
+                }
+              })
+            }
+          })
+          
+          groupStats[groupRecord.groupId] = {
+            memberCount: groupMembers.size,
+            userScore: userTotalScore
+          }
+        }
+      })
+      
+      this.groupsWithStats = this.groups.map(group => ({
+        ...group,
+        memberCount: groupStats[group.id]?.memberCount || 0,
+        userScore: groupStats[group.id]?.userScore || 0
+      }))
+      
+      this.todayScore = todayTotal
+      this.weekScore = weekTotal
+      this.monthScore = monthTotal
+      this.totalScore = total
+      this.activeGroupCount = activeGroups.size
+      this.activeMemberCount = activeMembers.size
     },
 
     // 跳转到群组详情
@@ -170,8 +290,14 @@ export default {
         url: '/pages/group-list/group-list'
       })
     },
-    // 显示添加群组弹窗
     showAddGroupDialog() {
+      const userInfo = uni.getStorageSync('userInfo')
+      if (!userInfo || !userInfo.username) {
+        uni.navigateTo({
+          url: '/pages/login/login'
+        })
+        return
+      }
       this.showAddDialog = true
     },
     // 添加群组
@@ -286,7 +412,8 @@ export default {
 
 /* 内容滚动区 */
 .content-scroll-area {
-  flex: 1;
+  /* flex: 1; */
+  height: calc(100% + 56px);
   padding: 24px; /* px-6 pt-6 */
   padding-bottom: 96px; /* pb-24 */
   box-sizing: border-box;
@@ -347,6 +474,49 @@ export default {
   opacity: 0.1;
 }
 
+.stats-grid {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-item {
+  flex: 1;
+  background-color: white;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #1f2937;
+}
+
 /* 分区标题 */
 .section-header {
   display: flex;
@@ -374,6 +544,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 16px; /* space-y-4 */
+  padding-bottom: 16px;
 }
 
 /* 群组卡片 */

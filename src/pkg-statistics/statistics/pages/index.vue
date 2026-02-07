@@ -74,10 +74,10 @@
       <view class="section-header">
         <text class="section-title">积分数据</text>
       </view>
-      <view class="chart-container" v-if="chartData.series.length > 0">
-        <qiun-data-charts type="column" :chartData="chartData" :opts="chartOpts" :key="chartKey"></qiun-data-charts>
+      <view class="chart-container" v-show="chartData.series.length > 0">
+        <qiun-data-charts type="column" :canvas2d="true" :chartData="chartData" :opts="chartOpts" :key="chartKey"></qiun-data-charts>
       </view>
-      <view class="empty-chart" v-else>
+      <view class="empty-chart" v-show="chartData.series.length === 0">
         <text class="empty-text">暂无数据</text>
       </view>
     </view>
@@ -85,7 +85,12 @@
 </template>
 
 <script>
+import qiunDataCharts from '../qiun-data-charts/components/qiun-data-charts/qiun-data-charts.vue';
+
 export default {
+  components: {
+    qiunDataCharts
+  },
   data() {
     return {
       // 群组相关
@@ -130,17 +135,44 @@ export default {
         series: []
       },
       chartOpts: {
-        // color: ['#22C55E'],
-        yAxis: {
+        padding: [15, 15, 0, 15],
+        enableDataLabel: false,
+        dataLabel: 'value',
+        xAxis: {
+          disableGrid: true,
+          labelCount: 5,
+          rotateLabel: false,
+          itemCount: 5,
+          scrollShow: true,
           label: {
             show: true
+          }
+        },
+        yAxis: {
+          gridType: 'dash',
+          dashLength: 4,
+          splitNumber: 5,
+          data: {
+            min: -500,
+            max: 500,
           },
-          data: [
-            {
-              min: 0,
-              max: 0
-            }
-          ],
+          label: {
+            show: true
+          }
+        },
+        extra: {
+          column: {
+            type: 'group',
+            width: 30,
+            activeBgColor: '#000000',
+            activeBgOpacity: 0.08,
+            linearType: 'none'
+          }
+        },
+        legend: {
+          show: true,
+          position: 'bottom',
+          float: 'center'
         }
       }
     }
@@ -431,38 +463,8 @@ export default {
       this.updateChartYAxis(series);
     },
     
-    // 根据数据更新图表Y轴范围
     updateChartYAxis(series) {
-      if (series.length === 0) {
-        this.chartOpts.yAxis.data[0].min = -100;
-        this.chartOpts.yAxis.data[0].max = 100;
-        return;
-      }
-      
-      // 收集所有数据点
-      const allValues = [];
-      series.forEach(item => {
-        item.data.forEach(value => {
-          allValues.push(value);
-        });
-      });
-      
-      if (allValues.length === 0) {
-        this.chartOpts.yAxis.data[0].min = -100;
-        this.chartOpts.yAxis.data[0].max = 100;
-        return;
-      }
-      
-      // 计算最大值和最小值
-      const maxValue = Math.max(...allValues);
-      const minValue = Math.min(...allValues);
-      
-      // 增加一些边距，使图表更美观
-      const range = maxValue - minValue;
-      const margin = range * 0.1 || 10;
-      
-      this.chartOpts.yAxis.data[0].max = Math.ceil((maxValue + margin) / 10) * 10;
-      this.chartOpts.yAxis.data[0].min = Math.floor((minValue - margin) / 10) * 10;
+      this.chartKey++;
     }
   }
 }

@@ -2,22 +2,44 @@
   <view class="login-container">
     <view class="login-card">
       <view class="logo-box">
-        <!-- 替换为微信图标，这里使用简单的 View 模拟或 u-icon -->
-        <u-icon name="weixin-fill" color="#ffffff" size="60"></u-icon>
+        <u-icon name="account-fill" color="#ffffff" size="60"></u-icon>
       </view>
-      <view class="title">微信积分助手</view>
+      <view class="title">积分助手</view>
       <view class="subtitle">
-        申请获取你的公开信息（昵称、头像等）以便于管理群组积分
+        请输入账号密码登录
       </view>
       
-      <!-- 微信一键授权按钮 -->
-      <button class="auth-btn" open-type="getPhoneNumber" @getphonenumber="getPhoneNumber">
-        <u-icon name="weixin-fill" color="#ffffff" size="24" style="margin-right: 8px;"></u-icon>
-        微信一键授权
+      <view class="form-container">
+        <view class="input-item">
+          <u-icon name="account-fill" color="#9ca3af" size="20"></u-icon>
+          <u-input 
+            v-model="username" 
+            placeholder="请输入账号" 
+            :border="false"
+            clearable
+            style="flex: 1; margin-left: 12px;"
+          ></u-input>
+        </view>
+        
+        <view class="input-item">
+          <u-icon name="lock-fill" color="#9ca3af" size="20"></u-icon>
+          <u-input 
+            v-model="password" 
+            placeholder="请输入密码" 
+            :border="false"
+            :password="true"
+            clearable
+            style="flex: 1; margin-left: 12px;"
+          ></u-input>
+        </view>
+      </view>
+      
+      <button class="auth-btn" @click="handleLogin">
+        登录
       </button>
       
       <view class="footer-text">
-        授权即表示同意服务协议和隐私政策
+        登录即表示同意服务协议和隐私政策
       </view>
     </view>
   </view>
@@ -27,83 +49,53 @@
 export default {
   data() {
     return {
-      code: ''
+      username: '',
+      password: ''
     }
   },
   onLoad() {
-    // 获取微信登录code
-    this.getCode()
+    const userInfo = uni.getStorageSync('userInfo')
+    if (userInfo && userInfo.username) {
+      this.username = userInfo.username
+    }
   },
   methods: {
-    // 获取微信登录code
-    getCode() {
-      uni.login({
-        provider: 'weixin',
-        success: (res) => {
-          if (res.code) {
-            this.code = res.code
-          } else {
-            uni.showToast({
-              title: '获取code失败',
-              icon: 'none'
-            })
-          }
-        },
-        fail: (err) => {
-          uni.showToast({
-            title: '登录失败',
-            icon: 'none'
-          })
-        }
-      })
-    },
-    // 微信授权手机号登录
-    getPhoneNumber(e) {
-      if (e.detail.errMsg === 'getPhoneNumber:ok' || e.detail.errMsg.includes('ok')) {
-        // 调用后端登录接口
-        this.login(e.detail.code)
-      } else {
+    handleLogin() {
+      if (!this.username.trim()) {
         uni.showToast({
-          title: '授权失败，请重新点击',
+          title: '请输入账号',
           icon: 'none'
         })
+        return
       }
-    },
-    // 登录请求
-    login(phoneCode) {
-      uni.request({
-        url: 'http://localhost:3000/api/auth/login',
-        method: 'POST',
-        data: {
-          openid: 'test-openid', // 实际项目中需要通过code获取openid
-          phone: '13800138000', // 实际项目中需要通过phoneCode解密获取
-          nickName: '测试用户',
-          avatarUrl: '/static/user.png'
-        },
-        success: (res) => {
-          if (res.data.code === 200) {
-            // 存储token和用户信息
-            uni.setStorageSync('token', res.data.data.token)
-            uni.setStorageSync('userInfo', res.data.data.user)
-            
-            // 跳转到首页
-            uni.switchTab({
-              url: '/pages/index/index'
-            })
-          } else {
-            uni.showToast({
-              title: res.data.message || '登录失败',
-              icon: 'none'
-            })
-          }
-        },
-        fail: (err) => {
-          uni.showToast({
-            title: '网络错误，请稍后重试',
-            icon: 'none'
-          })
-        }
+      
+      if (!this.password.trim()) {
+        uni.showToast({
+          title: '请输入密码',
+          icon: 'none'
+        })
+        return
+      }
+      
+      const userInfo = {
+        username: this.username,
+        nickName: this.username,
+        avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
+      }
+      
+      uni.setStorageSync('userInfo', userInfo)
+      uni.setStorageSync('token', 'mock-token-' + Date.now())
+      
+      uni.showToast({
+        title: '登录成功',
+        icon: 'success'
       })
+      
+      setTimeout(() => {
+        uni.switchTab({
+          url: '/pages/index/index'
+        })
+      }, 1000)
     }
   }
 }
@@ -117,27 +109,20 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 35px;
   box-sizing: border-box;
 }
 
 /* 对应 zz.html 中的 .w-[375px] h-[812px] bg-white border border-gray-200 rounded-[40px] shadow-2xl ... */
 .login-card {
   width: 100%;
-  max-width: 375px;
-  height: 812px; /* 固定高度，或者 min-height */
-  max-height: 90vh;
+  height: 100vh;
   background-color: #ffffff;
-  border: 1px solid #e5e7eb; /* gray-200 */
-  border-radius: 40px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* shadow-2xl */
   overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px; /* p-8 */
   box-sizing: border-box;
 }
 
@@ -161,20 +146,33 @@ export default {
   margin-bottom: 16px; /* mb-4 */
 }
 
-/* 对应 .text-center text-gray-500 text-sm leading-relaxed mb-40 px-4 */
 .subtitle {
   text-align: center;
-  color: #6b7280; /* gray-500 */
-  font-size: 14px; /* text-sm */
-  line-height: 1.625; /* leading-relaxed */
-  margin-bottom: 160px; /* mb-40 */
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.625;
+  margin-bottom: 40px;
   padding-left: 16px;
   padding-right: 16px;
 }
 
+.form-container {
+  width: 686rpx;
+  margin-bottom: 32px;
+}
+
+.input-item {
+  display: flex;
+  align-items: center;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
 /* 对应 .w-full bg-[#22C55E] text-white py-4 rounded-xl ... */
 .auth-btn {
-  width: 100%;
+  width: 686rpx;
   background-color: #22C55E;
   color: white;
   padding-top: 16px;
