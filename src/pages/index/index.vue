@@ -1,9 +1,7 @@
 <template>
   <view class="page-container">
-    <!-- 对应 zz.html 中的外部容器 .w-[375px] h-[812px] ... -->
     <view class="dashboard-container">
       
-      <!-- 顶部用户信息 (对应 zz.html lines 43-56) -->
       <view class="header-section">
         <view class="user-info-box">
           <view class="avatar-wrapper">
@@ -23,7 +21,6 @@
         </view>
       </view>
 
-      <!-- 数据内容区 (对应 zz.html lines 58-118) -->
       <scroll-view scroll-y class="content-scroll-area">
         
         <view class="core-metrics-card">
@@ -65,7 +62,6 @@
           </view>
         </view>
 
-        <!-- 最近活跃群组 (对应 zz.html lines 78-84) -->
         <view class="section-header">
           <text class="section-title">最近活跃群组</text>
           <view class="add-group-btn" @click="showAddGroupDialog">
@@ -76,13 +72,13 @@
 
         <view class="group-list-container">
           <block v-if="groupsWithStats.length > 0">
-            <view v-for="(group) in groupsWithStats" :key="group.id" class="group-card" @click="goToGroupDetail(group.id)">
+            <view v-for="(group) in groupsWithStats" :key="group._id || group.id" class="group-card" @click="goToGroupDetail(group._id || group.id)">
               <view class="group-icon-box bg-blue-50 text-blue-500">
                 <u-icon name="account-fill" size="24" color="#3b82f6"></u-icon>
               </view>
               <view class="group-info">
                 <view class="group-name">{{ group.groupName }}</view>
-                <view class="group-desc">{{ group.memberCount }}人 · 我的积分: {{ group.userScore >= 0 ? '+' : '' }}{{ group.userScore }}</view>
+                <view class="group-desc">{{ group.memberCount || 0 }}人 · 我的积分: {{ group.userScore >= 0 ? '+' : '' }}{{ group.userScore }}</view>
               </view>
               <u-icon name="arrow-right" color="#d1d5db" size="16"></u-icon>
             </view>
@@ -113,7 +109,6 @@
         </view>
 
       </scroll-view>
-      <!-- 底部导航区域已按要求移除 -->
     </view>
 
     <u-popup :show="showAddDialog" mode="center" :round="16" @close="showAddDialog = false" :safeAreaInsetBottom="false">
@@ -132,7 +127,8 @@
 </template>
 
 <script>
-import { getUuid } from '../../utils';
+import { ensureLogin, addDoc, queryDocs } from '../../utils/cloudbase'
+import { getUuid } from '../../utils'
 
 export default {
   data() {
@@ -159,13 +155,11 @@ export default {
     this.updateGreeting()
   },
   computed: {
-    // 计算显示的群组，最多显示4个
     displayedGroups() {
       return this.groups.slice(0, 4)
     }
   },
   methods: {
-    // 获取用户信息
     getUserInfo() {
       const userInfo = uni.getStorageSync('userInfo')
       if (userInfo) {
@@ -177,9 +171,20 @@ export default {
         }
       }
     },
-    getRecentGroups() {
-      const groups = uni.getStorageSync('groups')
-      this.groups = groups
+    async getRecentGroups() {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo')
+        const groups = await queryDocs('groups', {
+          creatorId: userInfo.username
+        })
+        this.groups = groups
+        uni.setStorageSync('groups', groups)
+      } catch (err) {
+        console.error('获取群组失败:', err)
+        const groups = uni.getStorageSync('groups')
+        this.groups = groups || []
+      }
     },
     
     updateGreeting() {
@@ -203,80 +208,83 @@ export default {
       this.greetingText = `${greeting}, ${dateStr}`
     },
     
-    loadStatistics() {
-      const groupData = uni.getStorageSync('groupData') || []
-      const today = new Date()
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-      
-      const weekStart = new Date(today)
-      const dayOfWeek = today.getDay() || 7
-      weekStart.setDate(today.getDate() - dayOfWeek + 1)
-      const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
-      
-      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-      
-      const userName = this.userInfo.nickName || '雀圣'
-      
-      let todayTotal = 0
-      let weekTotal = 0
-      let monthTotal = 0
-      let total = 0
-      const activeGroups = new Set()
-      const activeMembers = new Set()
-      
-      const groupStats = {}
-      
-      groupData.forEach(groupRecord => {
-        if (groupRecord.data) {
+    async loadStatistics() {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo')
+        const userName = userInfo.nickName || userInfo.username || '雀圣'
+
+        const today = new Date()
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+        
+        const weekStart = new Date(today)
+        const dayOfWeek = today.getDay() || 7
+        weekStart.setDate(today.getDate() - dayOfWeek + 1)
+        const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
+        
+        const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+
+        let todayTotal = 0
+        let weekTotal = 0
+        let monthTotal = 0
+        let total = 0
+        const activeGroups = new Set()
+        const activeMembers = new Set()
+        const groupStats = {}
+
+        const scores = await queryDocs('scores', {
+          creatorId: userInfo.username
+        })
+
+        scores.forEach(scoreRecord => {
           const groupMembers = new Set()
           let userTotalScore = 0
-          
-          groupRecord.data.forEach(dateData => {
-            if (dateData.users && dateData.users.length > 0) {
-              activeGroups.add(groupRecord.groupId)
-              dateData.users.forEach(user => {
-                groupMembers.add(user.name)
-                activeMembers.add(user.name)
-                const score = parseInt(user.score) || 0
-                if (user.name === userName) {
-                  userTotalScore += score
-                  total += score
-                  if (dateData.date === todayStr) {
-                    todayTotal += score
-                  }
-                  if (dateData.date >= weekStartStr) {
-                    weekTotal += score
-                  }
-                  if (dateData.date.startsWith(monthStart)) {
-                    monthTotal += score
-                  }
+
+          if (scoreRecord.users && scoreRecord.users.length > 0) {
+            activeGroups.add(scoreRecord.groupId)
+            scoreRecord.users.forEach(user => {
+              groupMembers.add(user.name)
+              activeMembers.add(user.name)
+              const score = parseInt(user.score) || 0
+              if (user.name === userName) {
+                userTotalScore += score
+                total += score
+                if (scoreRecord.date === todayStr) {
+                  todayTotal += score
                 }
-              })
-            }
-          })
-          
-          groupStats[groupRecord.groupId] = {
+                if (scoreRecord.date >= weekStartStr) {
+                  weekTotal += score
+                }
+                if (scoreRecord.date.startsWith(monthStart)) {
+                  monthTotal += score
+                }
+              }
+            })
+          }
+
+          groupStats[scoreRecord.groupId] = {
             memberCount: groupMembers.size,
             userScore: userTotalScore
           }
-        }
-      })
-      
-      this.groupsWithStats = this.groups.map(group => ({
-        ...group,
-        memberCount: groupStats[group.id]?.memberCount || 0,
-        userScore: groupStats[group.id]?.userScore || 0
-      }))
-      
-      this.todayScore = todayTotal
-      this.weekScore = weekTotal
-      this.monthScore = monthTotal
-      this.totalScore = total
-      this.activeGroupCount = activeGroups.size
-      this.activeMemberCount = activeMembers.size
+        })
+
+        this.groupsWithStats = this.groups.map(group => ({
+          ...group,
+          memberCount: groupStats[group._id || group.id]?.memberCount || 0,
+          userScore: groupStats[group._id || group.id]?.userScore || 0
+        }))
+
+        this.todayScore = todayTotal
+        this.weekScore = weekTotal
+        this.monthScore = monthTotal
+        this.totalScore = total
+        this.activeGroupCount = activeGroups.size
+        this.activeMemberCount = activeMembers.size
+      } catch (err) {
+        console.error('加载统计失败:', err)
+      }
     },
 
-    // 跳转到群组详情
     goToGroupDetail(groupId) {
       if (!groupId) return;
       uni.navigateTo({
@@ -284,7 +292,6 @@ export default {
       })
     },
 
-    // 跳转到群组列表
     goToGroupList() {
       uni.navigateTo({
         url: '/pages/group-list/group-list'
@@ -300,9 +307,7 @@ export default {
       }
       this.showAddDialog = true
     },
-    // 添加群组
-    addGroup() {
-      const groups = uni.getStorageSync('groups') || []
+    async addGroup() {
       if (!this.groupName.trim()) {
         uni.showToast({
           title: '请输入群组名称',
@@ -310,8 +315,7 @@ export default {
         })
         return
       }
-      // 查询名称是否重复
-      if(groups.findIndex(gp => gp.groupName == this.groupName) != -1){
+      if(this.groups.findIndex(gp => gp.groupName == this.groupName) != -1){
         uni.showToast({
           title: "该分组已存在",
           icon: "none"
@@ -319,33 +323,42 @@ export default {
         return
       }
 
-      // 新建一个组并缓存
-      const group = {
-        id: getUuid(),
-        groupName: this.groupName
+      try {
+        const userInfo = uni.getStorageSync('userInfo')
+        const group = {
+          id: getUuid(),
+          groupName: this.groupName,
+          creatorId: userInfo.username,
+          members: [userInfo.nickName || userInfo.username]
+        }
+        const res = await addDoc('groups', group)
+        group._id = res.id
+        this.groups.push(group)
+        uni.setStorageSync('groups', this.groups)
+        this.showAddDialog = false
+        this.goToGroupDetail(group._id || group.id)
+      } catch (err) {
+        console.error('添加群组失败:', err)
+        uni.showToast({
+          title: '添加失败，请重试',
+          icon: 'none'
+        })
       }
-      groups.push(group)
-      uni.setStorageSync('groups', groups)
-      this.groups = groups
-      this.showAddDialog = false
-      this.goToGroupDetail(group.id)
     }
   }
 }
 </script>
 
 <style scoped>
-/* 全局容器 */
 .page-container {
   width: 100vw;
   min-height: 100vh;
-  background-color: #f8fafc; /* bg-slate-50 */
+  background-color: #f8fafc;
   display: flex;
   justify-content: center;
   box-sizing: border-box;
 }
 
-/* 仪表盘容器 */
 .dashboard-container {
   width: 100%;
   height: 812px;
@@ -357,26 +370,25 @@ export default {
   flex-direction: column;
 }
 
-/* 顶部头部 */
 .header-section {
-  height: 56px; /* h-14 */
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px; /* px-6 */
-  margin-top: 16px; /* mt-4 */
+  padding: 0 24px;
+  margin-top: 16px;
 }
 
 .user-info-box {
   display: flex;
   align-items: center;
-  gap: 12px; /* gap-3 */
+  gap: 12px;
 }
 
 .avatar-wrapper {
-  width: 40px; /* w-10 */
-  height: 40px; /* h-10 */
-  border-radius: 9999px; /* rounded-full */
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
   overflow: hidden;
   background-color: #e5e7eb;
   border: 1px solid #f3f4f6;
@@ -389,14 +401,14 @@ export default {
 }
 
 .greeting-text {
-  font-size: 12px; /* text-xs */
-  color: #9ca3af; /* text-gray-400 */
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .username-text {
-  font-size: 14px; /* text-sm */
+  font-size: 14px;
   font-weight: bold;
-  color: #1f2937; /* text-gray-800 */
+  color: #1f2937;
 }
 
 .notification-btn {
@@ -410,23 +422,20 @@ export default {
   justify-content: center;
 }
 
-/* 内容滚动区 */
 .content-scroll-area {
-  /* flex: 1; */
   height: calc(100% + 56px);
-  padding: 24px; /* px-6 pt-6 */
-  padding-bottom: 96px; /* pb-24 */
+  padding: 24px;
+  padding-bottom: 96px;
   box-sizing: border-box;
 }
 
-/* 核心指标卡片 */
 .core-metrics-card {
   background: linear-gradient(to bottom right, #22C55E, #16A34A);
-  border-radius: 24px; /* rounded-3xl */
+  border-radius: 24px;
   padding: 24px;
   color: white;
   box-shadow: 0 10px 15px -3px rgba(34, 197, 94, 0.1), 0 4px 6px -2px rgba(34, 197, 94, 0.05);
-  margin-bottom: 32px; /* mb-8 */
+  margin-bottom: 32px;
   position: relative;
   overflow: hidden;
 }
@@ -450,12 +459,12 @@ export default {
 }
 
 .metrics-num {
-  font-size: 36px; /* text-4xl */
+  font-size: 36px;
   font-weight: bold;
 }
 
 .metrics-unit {
-  font-size: 18px; /* text-lg */
+  font-size: 18px;
   opacity: 0.8;
 }
 
@@ -517,12 +526,11 @@ export default {
   color: #1f2937;
 }
 
-/* 分区标题 */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px; /* mb-4 */
+  margin-bottom: 16px;
 }
 
 .section-title {
@@ -539,19 +547,17 @@ export default {
   gap: 4px;
 }
 
-/* 群组列表容器 */
 .group-list-container {
   display: flex;
   flex-direction: column;
-  gap: 16px; /* space-y-4 */
+  gap: 16px;
   padding-bottom: 16px;
 }
 
-/* 群组卡片 */
 .group-card {
   background-color: white;
   padding: 16px;
-  border-radius: 24px; /* rounded-3xl */
+  border-radius: 24px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -560,9 +566,9 @@ export default {
 }
 
 .group-icon-box {
-  width: 48px; /* w-12 */
+  width: 48px;
   height: 48px;
-  border-radius: 16px; /* rounded-2xl */
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -584,7 +590,6 @@ export default {
   color: #9ca3af;
 }
 
-/* 弹窗样式 (保留) */
 .dialog {
   background-color: #fff;
   border-radius: 16rpx;

@@ -1,6 +1,5 @@
 <template>
   <view class="page-container">
-    <!-- 日期选择 -->
     <view class="section">
       <view class="section-header">
         <text class="section-title">选择日期</text>
@@ -14,7 +13,6 @@
       <u-calendar :show="showCalendar" color="#22C55E" :min-date="minDate" :max-date="maxDate" @close="showCalendar = false" @confirm="handleCalendarConfirm"></u-calendar>
     </view>
     
-    <!-- 成员列表 -->
     <view class="section">
       <view class="section-header">
         <text class="section-title">成员列表</text>
@@ -24,7 +22,6 @@
         </view>
       </view>
       
-      <!-- 成员列表内容 -->
       <view class="member-list">
         <view v-if="users.length === 0" class="empty-state">
           <u-icon name="account" color="#9ca3af" size="48"></u-icon>
@@ -51,12 +48,10 @@
       </view>
     </view>
     
-    <!-- 保存按钮 -->
     <view class="save-btn-container">
-      <u-button text="保存" type="primary" color="#22C55E" @click="saveData"></u-button>
+      <u-button text="保存" type="primary" color="#22C55E" @click="saveData" :loading="saving"></u-button>
     </view>
     
-    <!-- 添加成员弹窗 -->
     <u-popup :show="showAddMemberDialog" mode="center" :round="16" @close="showAddMemberDialog = false" :safeAreaInsetBottom="false">
       <view class="dialog">
         <view class="dialog-title">添加成员</view>
@@ -73,7 +68,8 @@
 </template>
 
 <script>
-import { getUuid } from '../../utils';
+import { ensureLogin, ensureCollections, addDoc, queryDocs, updateDoc } from '../../utils/cloudbase'
+import { getUuid } from '../../utils'
 
 export default {
   data() {
@@ -87,69 +83,79 @@ export default {
       showAddMemberDialog: false,
       newMemberName: '',
       showCalendar: false,
-      editingNameIndex: -1
+      editingNameIndex: -1,
+      saving: false,
+      groupDocId: ''
     }
   },
   onLoad(options) {
-    // 接收分组ID
     if (options.id) {
       this.groupId = options.id;
     }
     
-    // 设置默认日期为当前日期
     const today = new Date();
     this.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     this.maxDate = this.date;
     
-    // 初始化数据
     this.initData();
   },
   methods: {
-    // 初始化数据
-    initData() {
-      this.loadMembers();
-      this.loadDataByDate();
+    async initData() {
+      await ensureLogin()
+      await ensureCollections()
+      await this.loadMembers()
+      await this.loadDataByDate()
     },
     
-    loadMembers() {
-      const userInfo = uni.getStorageSync('userInfo') || {};
-      const currentUser = userInfo.nickName || userInfo.username || '雀圣';
-      
-      const cachedData = uni.getStorageSync('groupData') || [];
-      const groupRecord = cachedData.find(item => item.groupId === this.groupId);
-      
-      const memberSet = new Set();
-      memberSet.add(currentUser);
-      
-      if (groupRecord && groupRecord.data) {
-        groupRecord.data.forEach(dateData => {
-          dateData.users.forEach(user => {
-            memberSet.add(user.name);
-          });
-        });
+    async loadMembers() {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo') || {};
+        const currentUser = userInfo.nickName || userInfo.username || '雀圣';
+        
+        const groups = await queryDocs('groups', { _id: this.groupId })
+        
+        const memberSet = new Set();
+        memberSet.add(currentUser);
+        
+        if (groups.length > 0) {
+          this.groupDocId = groups[0]._id
+          if (groups[0].members && groups[0].members.length > 0) {
+            groups[0].members.forEach(name => {
+              memberSet.add(name);
+            });
+          }
+        }
+        
+        this.members = Array.from(memberSet).map(name => ({ name }));
+      } catch (err) {
+        console.error('加载成员失败:', err)
+        const userInfo = uni.getStorageSync('userInfo') || {};
+        const currentUser = userInfo.nickName || userInfo.username || '雀圣';
+        this.members = [{ name: currentUser }]
       }
-      
-      this.members = Array.from(memberSet).map(name => ({ name }));
     },
     
-    // 根据日期加载数据
-    loadDataByDate() {
-      const cachedData = uni.getStorageSync('groupData') || [];
-      const groupRecord = cachedData.find(item => item.groupId === this.groupId);
-      
-      if (groupRecord && groupRecord.data) {
-        const dateData = groupRecord.data.find(item => item.date === this.date);
-        if (dateData) {
-          this.users = dateData.users || [];
+    async loadDataByDate() {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo') || {}
+        
+        const scores = await queryDocs('scores', {
+          groupId: this.groupId,
+          date: this.date
+        })
+        
+        if (scores.length > 0) {
+          this.users = scores[0].users || [];
         } else {
-          // 如果该日期没有数据，使用默认成员列表
           this.users = this.members.map(member => ({
             name: member.name,
             score: 0
           }));
         }
-      } else {
-        // 如果该群组没有数据，使用默认成员列表
+      } catch (err) {
+        console.error('加载数据失败:', err)
         this.users = this.members.map(member => ({
           name: member.name,
           score: 0
@@ -157,8 +163,7 @@ export default {
       }
     },
     
-    // 添加成员
-    addMember() {
+    async addMember() {
       if (!this.newMemberName.trim()) {
         uni.showToast({
           title: '请输入成员名称',
@@ -169,7 +174,6 @@ export default {
       
       const memberName = this.newMemberName.trim();
       
-      // 检查是否已存在该成员
       const exists = this.members.some(m => m.name === memberName);
       if (exists) {
         uni.showToast({
@@ -179,37 +183,40 @@ export default {
         return;
       }
       
-      // 添加到成员列表
       this.members.push({
         name: memberName
       });
       
-      // 添加到当前用户列表
       this.users.push({
         name: memberName,
         score: 0
       });
+
+      try {
+        if (this.groupDocId) {
+          await updateDoc('groups', this.groupDocId, {
+            members: this.members.map(m => m.name)
+          })
+        }
+      } catch (err) {
+        console.error('更新群组成员失败:', err)
+      }
       
-      // 关闭弹窗并清空输入
       this.showAddMemberDialog = false;
       this.newMemberName = '';
     },
     
-    // 处理日历选择确认
     handleCalendarConfirm(e) {
-      console.log(e);
       this.date = e[0];
       this.showCalendar = false;
       this.loadDataByDate();
     },
     
-    // 点击名字开始编辑
     handleNameTap(index) {
       this.editingNameIndex = index;
     },
     
-    // 完成名字编辑
-    finishEditName(index) {
+    async finishEditName(index) {
       const oldName = this.members[index]?.name || this.users[index]?.name;
       const newName = this.users[index]?.name?.trim();
       
@@ -227,33 +234,51 @@ export default {
         if (this.members[index]) {
           this.members[index].name = newName;
         }
-        this.updateNameInCache(oldName, newName);
+        await this.updateNameInCloud(oldName, newName);
       }
       
       this.editingNameIndex = -1;
     },
     
-    // 更新缓存中的名字
-    updateNameInCache(oldName, newName) {
-      const cachedData = uni.getStorageSync('groupData') || [];
-      const groupIndex = cachedData.findIndex(item => item.groupId === this.groupId);
-      
-      if (groupIndex !== -1) {
-        cachedData[groupIndex].data.forEach(dateData => {
-          dateData.users.forEach(user => {
+    async updateNameInCloud(oldName, newName) {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo') || {}
+        
+        const allScores = await queryDocs('scores', {
+          groupId: this.groupId
+        })
+        
+        for (const scoreRecord of allScores) {
+          let needUpdate = false
+          const updatedUsers = (scoreRecord.users || []).map(user => {
             if (user.name === oldName) {
-              user.name = newName;
+              needUpdate = true
+              return { ...user, name: newName }
             }
-          });
-        });
-        uni.setStorageSync('groupData', cachedData);
+            return user
+          })
+          
+          if (needUpdate) {
+            await updateDoc('scores', scoreRecord._id, {
+              users: updatedUsers
+            })
+          }
+        }
+
+        if (this.groupDocId) {
+          await updateDoc('groups', this.groupDocId, {
+            members: this.members.map(m => m.name)
+          })
+        }
+        
+        this.loadMembers();
+      } catch (err) {
+        console.error('更新名称失败:', err)
       }
-      
-      this.loadMembers();
     },
     
-    // 保存数据
-    saveData() {
+    async saveData() {
       if (this.users.length === 0) {
         uni.showToast({
           title: '请至少添加一个成员',
@@ -261,54 +286,51 @@ export default {
         });
         return;
       }
-      
-      // 从缓存中获取现有数据
-      let cachedData = uni.getStorageSync('groupData') || [];
-      
-      // 查找是否已存在该群组的数据
-      const groupIndex = cachedData.findIndex(item => item.groupId === this.groupId);
-      
-      // 当前日期的数据
-      const dateData = {
-        date: this.date,
-        users: this.users
-      };
-      
-      if (groupIndex !== -1) {
-        // 已存在该群组，更新或添加日期数据
-        const dateIndex = cachedData[groupIndex].data.findIndex(item => item.date === this.date);
-        if (dateIndex !== -1) {
-          // 更新已有日期的数据
-          cachedData[groupIndex].data[dateIndex] = dateData;
-        } else {
-          // 添加新日期的数据
-          cachedData[groupIndex].data.push(dateData);
-        }
-      } else {
-        // 创建新群组记录
-        const newGroupRecord = {
-          id: getUuid(),
+
+      this.saving = true
+
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo') || {}
+        
+        const existingScores = await queryDocs('scores', {
           groupId: this.groupId,
-          data: [dateData]
-        };
-        cachedData.push(newGroupRecord);
+          date: this.date
+        })
+        
+        if (existingScores.length > 0) {
+          await updateDoc('scores', existingScores[0]._id, {
+            users: this.users
+          })
+        } else {
+          await addDoc('scores', {
+            id: getUuid(),
+            groupId: this.groupId,
+            date: this.date,
+            users: this.users,
+            creatorId: userInfo.username
+          })
+        }
+        
+        uni.showToast({
+          title: '保存成功',
+          icon: 'success'
+        });
+      } catch (err) {
+        console.error('保存失败:', err)
+        uni.showToast({
+          title: '保存失败，请重试',
+          icon: 'none'
+        });
+      } finally {
+        this.saving = false
       }
-      
-      // 保存到缓存
-      uni.setStorageSync('groupData', cachedData);
-      
-      // 显示保存成功提示
-      uni.showToast({
-        title: '保存成功',
-        icon: 'success'
-      });
     }
   }
 }
 </script>
 
 <style scoped>
-/* 页面容器 */
 .page-container {
   width: 100%;
   min-height: 100vh;
@@ -316,7 +338,6 @@ export default {
   padding-bottom: 80rpx;
 }
 
-/* 页面标题 */
 .header {
   height: 56px;
   display: flex;
@@ -332,7 +353,6 @@ export default {
   color: #1f2937;
 }
 
-/* section样式 */
 .section {
   margin-top: 20px;
   background-color: white;
@@ -354,7 +374,6 @@ export default {
   color: #1f2937;
 }
 
-/* 添加成员按钮 */
 .add-member-btn {
   color: #22C55E;
   font-size: 14px;
@@ -363,12 +382,10 @@ export default {
   gap: 4px;
 }
 
-/* 成员列表 */
 .member-list {
   min-height: 200px;
 }
 
-/* 空状态 */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -383,7 +400,6 @@ export default {
   color: #9ca3af;
 }
 
-/* 成员项 */
 .member-item {
   display: flex;
   justify-content: space-between;
@@ -397,13 +413,11 @@ export default {
   color: #1f2937;
 }
 
-/* 分数输入 */
 .score-input {
   display: flex;
   align-items: center;
 }
 
-/* 日期选择 */
 .date-picker {
   margin-top: 8px;
   background-color: #f9fafb;
@@ -420,12 +434,10 @@ export default {
   color: #1f2937;
 }
 
-/* 保存按钮 */
 .save-btn-container {
   margin: 32px 16px 0;
 }
 
-/* 弹窗样式 */
 .dialog {
   background-color: #fff;
   border-radius: 16rpx;

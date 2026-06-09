@@ -1,6 +1,5 @@
 <template>
   <view class="my-container">
-    <!-- 用户信息 -->
     <view class="user-info">
       <image :src="userInfo.avatarUrl" class="avatar"></image>
       <view class="user-detail">
@@ -9,7 +8,6 @@
       </view>
     </view>
 
-    <!-- 功能列表 -->
     <view class="function-list">
       <view class="function-item" @click="goToStatistics">
         <text class="function-icon">📊</text>
@@ -18,7 +16,6 @@
       </view>
     </view>
 
-    <!-- 退出登录按钮 -->
     <view class="logout-btn-container">
       <u-button type="error" size="large" @click="logout">退出登录</u-button>
     </view>
@@ -26,6 +23,8 @@
 </template>
 
 <script>
+import { ensureLogin, queryDocs, auth } from '../../utils/cloudbase'
+
 export default {
   data() {
     return {
@@ -39,30 +38,49 @@ export default {
     this.getUserInfo()
   },
   methods: {
-    // 获取用户信息
-    getUserInfo() {
-      const userInfo = uni.getStorageSync('userInfo')
-      if (userInfo) {
-        this.userInfo = userInfo
+    async getUserInfo() {
+      const localUserInfo = uni.getStorageSync('userInfo')
+      if (localUserInfo) {
+        this.userInfo = localUserInfo
+      }
+
+      try {
+        await ensureLogin()
+        const cloudUsers = await queryDocs('users', {
+          username: localUserInfo.username
+        })
+        if (cloudUsers.length > 0) {
+          const cloudUser = cloudUsers[0]
+          this.userInfo = {
+            username: cloudUser.username,
+            nickName: cloudUser.nickName || cloudUser.username,
+            avatarUrl: cloudUser.avatarUrl || localUserInfo.avatarUrl,
+            phone: cloudUser.phone || ''
+          }
+          uni.setStorageSync('userInfo', this.userInfo)
+        }
+      } catch (err) {
+        console.error('获取云端用户信息失败:', err)
       }
     },
-    // 跳转到数据统计页面
     goToStatistics() {
       uni.navigateTo({
         url: '/pkg-statistics/statistics/pages/index'
       })
     },
-    // 退出登录
     logout() {
       uni.showModal({
         title: '退出登录',
         content: '确定要退出登录吗？',
-        success: (res) => {
+        success: async (res) => {
           if (res.confirm) {
-            // 清除缓存
+            try {
+              await auth.signOut()
+            } catch (err) {
+              console.error('登出失败:', err)
+            }
             uni.removeStorageSync('token')
             uni.removeStorageSync('userInfo')
-            // 跳转到登录页
             uni.redirectTo({
               url: '/pages/login/login'
             })
@@ -81,7 +99,6 @@ export default {
   padding: 20rpx;
 }
 
-/* 用户信息 */
 .user-info {
   display: flex;
   align-items: center;
@@ -115,7 +132,6 @@ export default {
   color: #666;
 }
 
-/* 功能列表 */
 .function-list {
   background-color: #fff;
   border-radius: 16rpx;
@@ -151,7 +167,6 @@ export default {
   color: #999;
 }
 
-/* 退出登录按钮 */
 .logout-btn-container {
   padding: 20rpx 0;
 }

@@ -1,8 +1,6 @@
 <template>
   <view class="page-container">
-    <!-- 查询条件 -->
     <view class="section">
-      <!-- 组选择 -->
       <view class="form-item">
         <text class="label">选择群组</text>
         <view class="picker-display" @click="showGroupPicker = true">
@@ -11,7 +9,6 @@
         </view>
       </view>
       
-      <!-- 年份选择 -->
       <view class="form-item">
         <text class="label">选择年份</text>
         <view class="picker-display" @click="showYearPicker = true">
@@ -20,7 +17,6 @@
         </view>
       </view>
       
-      <!-- 月份选择 -->
       <view class="form-item">
         <text class="label">选择月份</text>
         <view class="picker-display" @click="showMonthPicker = true">
@@ -30,16 +26,12 @@
       </view>
     </view>
     
-    <!-- 群组选择器 -->
     <u-picker :show="showGroupPicker" :columns="groupColumns" @confirm="onGroupConfirm" @cancel="showGroupPicker = false"></u-picker>
     
-    <!-- 年份选择器 -->
     <u-picker :show="showYearPicker" :columns="yearColumns" @confirm="onYearConfirm" @cancel="showYearPicker = false"></u-picker>
     
-    <!-- 月份选择器 -->
     <u-picker :show="showMonthPicker" :columns="monthColumns" @confirm="onMonthConfirm" @cancel="showMonthPicker = false"></u-picker>
     
-    <!-- 年积分统计 -->
     <view class="section" v-if="timeType === 1">
       <view class="section-header">
         <text class="section-title">年积分统计</text>
@@ -52,7 +44,6 @@
       </view>
     </view>
     
-    <!-- 积分统计表格 -->
     <view class="section" v-if="periodStats.length > 0">
       <view class="section-header">
         <text class="section-title">当前时间段统计</text>
@@ -69,7 +60,6 @@
       </view>
     </view>
     
-    <!-- 积分柱状图 -->
     <view class="section">
       <view class="section-header">
         <text class="section-title">积分数据</text>
@@ -86,6 +76,7 @@
 
 <script>
 import qiunDataCharts from '../qiun-data-charts/components/qiun-data-charts/qiun-data-charts.vue';
+import { ensureLogin, queryDocs } from '../../../utils/cloudbase'
 
 export default {
   components: {
@@ -93,15 +84,13 @@ export default {
   },
   data() {
     return {
-      // 群组相关
       groupList: [],
       selectedGroup: '',
       selectedGroupName: '',
       showGroupPicker: false,
       groupColumns: [{value: '2026-01', label: '2026年1月'}],
       
-      // 时间相关
-      timeType: 0, // 0: 按月, 1: 按年
+      timeType: 0,
       yearList: [],
       showYearPicker: false,
       yearColumns: [[]],
@@ -126,7 +115,6 @@ export default {
       showMonthPicker: false,
       monthColumns: [[]],
       
-      // 统计数据
       yearStats: [],
       periodStats: [],
       chartKey: 0,
@@ -181,65 +169,73 @@ export default {
     this.initData();
   },
   methods: {
-    // 初始化数据
-    initData() {
-      this.loadYears();
+    async initData() {
       this.loadMonthColumns();
-      this.loadGroups();
+      await this.loadGroups();
+      this.loadYears();
     },
     
-    // 加载群组列表
-    loadGroups() {
-      const cachedData = uni.getStorageSync('groups') || [];
-      this.groupList = cachedData.map(item => ({
-        label: item.groupName,
-        value: item.id
-      }));
-      
-      // 设置 picker 列数据 - 必须是二维数组 [[...]]，格式为 {text: '', value: ''}
-      this.groupColumns = [this.groupList.map(item => ({
-        text: item.label,
-        value: item.value
-      }))]
-      
-      // 默认选择第一个群组
-      if (this.groupList.length > 0) {
-        this.selectedGroup = this.groupList[0].value;
-        this.selectedGroupName = this.groupList[0].label;
-        this.loadStatistics();
+    async loadGroups() {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo')
+        const cachedData = await queryDocs('groups', {
+          creatorId: userInfo.username
+        })
+        this.groupList = cachedData.map(item => ({
+          label: item.groupName,
+          value: item._id || item.id
+        }));
+        
+        this.groupColumns = [this.groupList.map(item => ({
+          text: item.label,
+          value: item.value
+        }))]
+        
+        if (this.groupList.length > 0) {
+          this.selectedGroup = this.groupList[0].value;
+          this.selectedGroupName = this.groupList[0].label;
+          this.loadStatistics();
+        }
+      } catch (err) {
+        console.error('加载群组失败:', err)
       }
     },
     
-    // 加载年份列表
-    loadYears() {
-      const cachedData = uni.getStorageSync('groupData') || [];
-      const years = new Set();
-      
-      cachedData.forEach(group => {
-        group.data.forEach(item => {
-          const year = item.date.split('-')[0];
-          years.add(year);
+    async loadYears() {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo')
+        const scores = await queryDocs('scores', {
+          creatorId: userInfo.username
+        })
+        const years = new Set();
+        
+        scores.forEach(item => {
+          if (item.date) {
+            const year = item.date.split('-')[0];
+            years.add(year);
+          }
         });
-      });
-      
-      this.yearList = Array.from(years).map(year => ({
-        value: year,
-        label: year + '年'
-      }));
-      
-      // 设置 picker 列数据 - 格式为 {text: '', value: ''}
-      this.yearColumns = [this.yearList.map(item => ({
-        text: item.label,
-        value: item.value
-      }))];
-      
-      // 默认选择当前年份
-      const currentYear = new Date().getFullYear().toString();
-      this.selectedYear = currentYear;
-      this.selectedMonth = "";
+        
+        this.yearList = Array.from(years).map(year => ({
+          value: year,
+          label: year + '年'
+        }));
+        
+        this.yearColumns = [this.yearList.map(item => ({
+          text: item.label,
+          value: item.value
+        }))];
+        
+        const currentYear = new Date().getFullYear().toString();
+        this.selectedYear = currentYear;
+        this.selectedMonth = "";
+      } catch (err) {
+        console.error('加载年份失败:', err)
+      }
     },
     
-    // 加载月份列数据
     loadMonthColumns() {
       this.monthColumns = [this.monthList.map(item => ({
         text: item.label,
@@ -247,115 +243,105 @@ export default {
       }))];
     },
     
-    // 群组选择确认
     onGroupConfirm(e) {
-      console.log(e);
       this.selectedGroupName = e.value[0].text;
       this.selectedGroup = e.value[0].value;
       this.loadStatistics();
       this.showGroupPicker = false;
     },
     
-    // 年份选择确认
     onYearConfirm(e) {
-      const index = e.value[0];
       this.selectedYear = e.value[0].value;
       this.loadStatistics();
       this.showYearPicker = false;
     },
     
-    // 月份选择确认
     onMonthConfirm(e) {
-      console.log(e);
       this.selectedMonth = e.value[0].value;
       this.selectedMonthName = e.value[0].text;
       this.loadStatistics();
       this.showMonthPicker = false;
     },
     
-    // 加载统计数据
-    loadStatistics() {
+    async loadStatistics() {
       if (!this.selectedGroup) return;
       
-      const cachedData = uni.getStorageSync('groupData') || [];
-      const groupRecord = cachedData.find(item => item.groupId === this.selectedGroup);
-      
-      if (!groupRecord) return;
-      
-      if(this.selectedYear && !this.selectedMonth) {
-        // 按年统计
-        console.log('按年统计', this.selectedYear);
-        this.calculateYearStats(groupRecord.data);
-      }
-      if(this.selectedYear && this.selectedMonth) {
-        // 按月统计
-        console.log('按月统计', this.selectedYear, this.selectedMonth);
-        this.calculateMonthStats(groupRecord.data);
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo')
+        const scores = await queryDocs('scores', {
+          groupId: this.selectedGroup,
+          creatorId: userInfo.username
+        })
+        
+        if (!scores || scores.length === 0) return;
+        
+        if(this.selectedYear && !this.selectedMonth) {
+          this.calculateYearStats(scores);
+        }
+        if(this.selectedYear && this.selectedMonth) {
+          this.calculateMonthStats(scores);
+        }
+      } catch (err) {
+        console.error('加载统计失败:', err)
       }
     },
     
-    // 计算年统计数据
     calculateYearStats(data) {
       const year = this.selectedYear;
-      const yearData = data.filter(item => item.date.startsWith(year));
+      const yearData = data.filter(item => item.date && item.date.startsWith(year));
       
-      // 计算每个人的年积分
       const userStats = {};
       yearData.forEach(item => {
-        item.users.forEach(user => {
-          if (!userStats[user.name]) {
-            userStats[user.name] = 0;
-          }
-          userStats[user.name] += Number(user.score) || 0;
-        });
+        if (item.users) {
+          item.users.forEach(user => {
+            if (!userStats[user.name]) {
+              userStats[user.name] = 0;
+            }
+            userStats[user.name] += Number(user.score) || 0;
+          });
+        }
       });
       
-      // 转换为数组
       this.yearStats = Object.keys(userStats).map(name => ({
         name,
         totalScore: userStats[name]
       }));
       
-      // 设置当前时间段统计
       this.periodStats = Object.keys(userStats).map(name => ({
         name,
         total: userStats[name]
       }));
       
-      // 准备图表数据
       this.prepareYearChartData(yearData);
     },
     
-    // 计算月统计数据
     calculateMonthStats(data) {
       const month = this.selectedMonth;
       const date = this.selectedYear + '-' + month;
-      const monthData = data.filter(item => item.date.startsWith(date));
+      const monthData = data.filter(item => item.date && item.date.startsWith(date));
       
-      // 计算每个人的月积分
       const userStats = {};
       monthData.forEach(item => {
-        item.users.forEach(user => {
-          if (!userStats[user.name]) {
-            userStats[user.name] = 0;
-          }
-          userStats[user.name] += Number(user.score) || 0;
-        });
+        if (item.users) {
+          item.users.forEach(user => {
+            if (!userStats[user.name]) {
+              userStats[user.name] = 0;
+            }
+            userStats[user.name] += Number(user.score) || 0;
+          });
+        }
       });
       
-      // 设置当前时间段统计
       this.periodStats = Object.keys(userStats).map(name => ({
         name,
         total: userStats[name]
       }));
       
-      // 准备图表数据
       this.prepareMonthChartData(monthData);
     },
     
-    // 准备年图表数据
     prepareYearChartData(data) {
-      // 如果数据为空，清空图表
       if (!data || data.length === 0) {
         this.chartData = {
           categories: [],
@@ -364,17 +350,16 @@ export default {
         this.yearStats = [];
         this.periodStats = [];
         this.chartKey++;
-        this.updateChartYAxis([]);
         return;
       }
       
-      // 按日期分组
       const dateMap = {};
       data.forEach(item => {
-        dateMap[item.date] = item.users;
+        if (item.date && item.users) {
+          dateMap[item.date] = item.users;
+        }
       });
       
-      // 获取所有日期和用户
       const dates = Object.keys(dateMap).sort();
       const users = new Set();
       dates.forEach(date => {
@@ -383,7 +368,6 @@ export default {
         });
       });
       
-      // 准备图表数据
       const series = [];
       const userList = Array.from(users);
       
@@ -404,32 +388,27 @@ export default {
         series
       };
       
-      // 根据数据计算Y轴最大值和最小值
-      this.updateChartYAxis(series);
+      this.chartKey++;
     },
     
-    // 准备月图表数据
     prepareMonthChartData(data) {
-      // 如果数据为空，清空图表
       if (!data || data.length === 0) {
-        console.log('无数据');
         this.chartData = {
           categories: [],
           series: []
         };
         this.periodStats = [];
         this.chartKey++;
-        this.updateChartYAxis([]);
         return;
       }
       
-      // 按日期分组
       const dateMap = {};
       data.forEach(item => {
-        dateMap[item.date] = item.users;
+        if (item.date && item.users) {
+          dateMap[item.date] = item.users;
+        }
       });
       
-      // 获取所有日期和用户
       const dates = Object.keys(dateMap).sort();
       const users = new Set();
       dates.forEach(date => {
@@ -438,7 +417,6 @@ export default {
         });
       });
       
-      // 准备图表数据
       const series = [];
       const userList = Array.from(users);
       
@@ -459,11 +437,6 @@ export default {
         series
       };
       
-      // 根据数据计算Y轴最大值和最小值
-      this.updateChartYAxis(series);
-    },
-    
-    updateChartYAxis(series) {
       this.chartKey++;
     }
   }
@@ -471,7 +444,6 @@ export default {
 </script>
 
 <style scoped>
-/* 页面容器 */
 .page-container {
   width: 100%;
   min-height: 100vh;
@@ -479,7 +451,6 @@ export default {
   padding-bottom: 80rpx;
 }
 
-/* 页面标题 */
 .header {
   height: 56px;
   display: flex;
@@ -495,7 +466,6 @@ export default {
   color: #1f2937;
 }
 
-/* section样式 */
 .section {
   margin-top: 20px;
   background-color: white;
@@ -514,7 +484,6 @@ export default {
   color: #1f2937;
 }
 
-/* 表单项 */
 .form-item {
   margin-bottom: 16px;
 }
@@ -526,7 +495,6 @@ export default {
   margin-bottom: 8px;
 }
 
-/* picker 显示 */
 .picker-display {
   display: flex;
   justify-content: space-between;
@@ -541,7 +509,6 @@ export default {
   color: #1f2937;
 }
 
-/* 年积分统计 */
 .year-stats {
   display: flex;
   flex-direction: column;
@@ -568,7 +535,6 @@ export default {
   color: #22C55E;
 }
 
-/* 统计表格 */
 .stats-table {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -604,7 +570,6 @@ export default {
   font-weight: bold;
 }
 
-/* 图表容器 */
 .chart-container {
   height: 400px;
 }

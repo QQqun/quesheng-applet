@@ -34,7 +34,7 @@
         </view>
       </view>
       
-      <button class="auth-btn" @click="handleLogin">
+      <button class="auth-btn" @click="handleLogin" :loading="loading">
         登录
       </button>
       
@@ -46,11 +46,14 @@
 </template>
 
 <script>
+import { ensureLogin, addDoc, queryDocs, updateDoc } from '../../utils/cloudbase'
+
 export default {
   data() {
     return {
       username: '',
-      password: ''
+      password: '',
+      loading: false
     }
   },
   onLoad() {
@@ -60,7 +63,7 @@ export default {
     }
   },
   methods: {
-    handleLogin() {
+    async handleLogin() {
       if (!this.username.trim()) {
         uni.showToast({
           title: '请输入账号',
@@ -76,43 +79,68 @@ export default {
         })
         return
       }
-      
-      const userInfo = {
-        username: this.username,
-        nickName: this.username,
-        avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
-      }
-      
-      uni.setStorageSync('userInfo', userInfo)
-      uni.setStorageSync('token', 'mock-token-' + Date.now())
-      
-      uni.showToast({
-        title: '登录成功',
-        icon: 'success'
-      })
-      
-      setTimeout(() => {
-        uni.switchTab({
-          url: '/pages/index/index'
+
+      this.loading = true
+
+      try {
+        await ensureLogin()
+
+        const existingUsers = await queryDocs('users', { username: this.username.trim() })
+
+        const userInfo = {
+          username: this.username.trim(),
+          nickName: this.username.trim(),
+          avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
+        }
+
+        if (existingUsers.length > 0) {
+          const cloudUser = existingUsers[0]
+          userInfo.nickName = cloudUser.nickName || cloudUser.username
+          userInfo.avatarUrl = cloudUser.avatarUrl || userInfo.avatarUrl
+          await updateDoc('users', cloudUser._id, {
+            lastLoginTime: new Date()
+          })
+        } else {
+          await addDoc('users', userInfo)
+        }
+
+        uni.setStorageSync('userInfo', userInfo)
+        uni.setStorageSync('token', 'cloudbase-token-' + Date.now())
+
+        uni.showToast({
+          title: '登录成功',
+          icon: 'success'
         })
-      }, 1000)
+
+        setTimeout(() => {
+          uni.switchTab({
+            url: '/pages/index/index'
+          })
+        }, 1000)
+      } catch (err) {
+        console.error('登录失败:', err)
+        uni.showToast({
+          title: '登录失败，请重试',
+          icon: 'none'
+        })
+      } finally {
+        this.loading = false
+      }
     }
   }
 }
 </script>
 
 <style scoped>
-/* 对应 zz.html 中的 .bg-slate-50 flex flex-wrap justify-center gap-[35px] p-[35px] */
 .login-container {
   min-height: 100vh;
-  background-color: #f8fafc; /* bg-slate-50 */
+  background-color: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
 }
 
-/* 对应 zz.html 中的 .w-[375px] h-[812px] bg-white border border-gray-200 rounded-[40px] shadow-2xl ... */
 .login-card {
   width: 100%;
   height: 100vh;
@@ -126,24 +154,22 @@ export default {
   box-sizing: border-box;
 }
 
-/* 对应 .w-24 h-24 bg-[#22C55E] rounded-2xl ... */
 .logo-box {
-  width: 96px; /* 24 * 4 */
+  width: 96px;
   height: 96px;
   background-color: #22C55E;
-  border-radius: 16px; /* rounded-2xl */
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px; /* mb-6 */
+  margin-bottom: 24px;
 }
 
-/* 对应 .text-2xl font-bold text-gray-800 mb-4 */
 .title {
-  font-size: 24px; /* text-2xl */
+  font-size: 24px;
   font-weight: bold;
-  color: #1f2937; /* gray-800 */
-  margin-bottom: 16px; /* mb-4 */
+  color: #1f2937;
+  margin-bottom: 16px;
 }
 
 .subtitle {
@@ -170,14 +196,13 @@ export default {
   margin-bottom: 16px;
 }
 
-/* 对应 .w-full bg-[#22C55E] text-white py-4 rounded-xl ... */
 .auth-btn {
   width: 686rpx;
   background-color: #22C55E;
   color: white;
   padding-top: 16px;
   padding-bottom: 16px;
-  border-radius: 12px; /* rounded-xl */
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -190,11 +215,10 @@ export default {
   opacity: 0.9;
 }
 
-/* 对应 .absolute bottom-10 text-xs text-gray-400 */
 .footer-text {
   position: absolute;
-  bottom: 40px; /* bottom-10 */
-  font-size: 12px; /* text-xs */
-  color: #9ca3af; /* gray-400 */
+  bottom: 40px;
+  font-size: 12px;
+  color: #9ca3af;
 }
 </style>
