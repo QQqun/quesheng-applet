@@ -41,9 +41,12 @@
             ></u-input>
             <text v-else class="member-name">{{ user.name }}</text>
           </view>
-          <view class="score-input">
-            <u-input v-model="user.score" type="text" :showWordLimit="true" placeholder="0" border="surround" style="width: 100px;"></u-input>
-          </view>
+          <view class="member-actions">
+              <view class="score-input">
+                <u-input v-model="user.score" type="text" :showWordLimit="true" placeholder="0" border="surround" style="width: 100px;"></u-input>
+              </view>
+              <u-icon name="close-circle" color="#ef4444" size="20" @click="removeMember(index)"></u-icon>
+            </view>
         </view>
       </view>
     </view>
@@ -68,8 +71,9 @@
 </template>
 
 <script>
-import { ensureLogin, ensureCollections, addDoc, queryDocs, updateDoc } from '../../utils/cloudbase'
-import { getUuid } from '../../utils'
+import { ensureLogin, ensureCollections, addDoc, queryDocs, updateDoc } from '@/utils/cloudbase'
+import { getUuid } from '@/utils'
+import md5 from '@/utils/md5'
 
 export default {
   data() {
@@ -163,6 +167,47 @@ export default {
       }
     },
     
+    async removeMember(index) {
+      const memberName = this.users[index]?.name;
+      if (!memberName) return;
+
+      const res = await new Promise(resolve => {
+        uni.showModal({
+          title: '确认删除',
+          content: `确定要删除成员"${memberName}"并清除其在该分组的所有积分吗？`,
+          confirmColor: '#ef4444',
+          success: resolve
+        });
+      });
+
+      if (!res.confirm) return;
+
+      this.users.splice(index, 1);
+      this.members = this.members.filter(m => m.name !== memberName);
+
+      try {
+        await ensureLogin();
+
+        const allScores = await queryDocs('scores', { groupId: this.groupId });
+
+        for (const scoreRecord of allScores) {
+          const updatedUsers = (scoreRecord.users || []).filter(u => u.name !== memberName);
+          if (updatedUsers.length !== (scoreRecord.users || []).length) {
+            await updateDoc('scores', scoreRecord._id, { users: updatedUsers });
+          }
+        }
+
+        if (this.groupDocId) {
+          await updateDoc('groups', this.groupDocId, {
+            members: this.members.map(m => m.name)
+          });
+        }
+      } catch (err) {
+        console.error('删除成员失败:', err);
+        uni.showToast({ title: '删除失败，请重试', icon: 'none' });
+      }
+    },
+
     async addMember() {
       if (!this.newMemberName.trim()) {
         uni.showToast({
@@ -181,6 +226,23 @@ export default {
           icon: 'none'
         });
         return;
+      }
+
+      try {
+        await ensureLogin();
+
+        const existingUsers = await queryDocs('users', { username: memberName });
+        if (existingUsers.length === 0) {
+          const defaultPassword = md5('888888');
+          await addDoc('users', {
+            username: memberName,
+            nickName: memberName,
+            avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg',
+            password: defaultPassword
+          });
+        }
+      } catch (err) {
+        console.error('校验用户失败:', err);
       }
       
       this.members.push({
@@ -411,6 +473,12 @@ export default {
 .member-name {
   font-size: 16px;
   color: #1f2937;
+}
+
+.member-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .score-input {

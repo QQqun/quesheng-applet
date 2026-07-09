@@ -1,7 +1,7 @@
 <template>
   <view class="my-container">
     <view class="user-info">
-      <image :src="userInfo.avatarUrl" class="avatar"></image>
+      <image :src="userInfo.avatarUrl" class="avatar" @click="goToProfile"></image>
       <view class="user-detail">
         <view class="nickname">{{ userInfo.nickName || '未设置昵称' }}</view>
         <view class="phone">{{ userInfo.phone || '未绑定手机号' }}</view>
@@ -68,6 +68,11 @@ export default {
         url: '/pkg-statistics/statistics/pages/index'
       })
     },
+    goToProfile() {
+      uni.navigateTo({
+        url: '/pkg-profile/index'
+      })
+    },
     logout() {
       uni.showModal({
         title: '退出登录',
@@ -82,7 +87,7 @@ export default {
             uni.removeStorageSync('token')
             uni.removeStorageSync('userInfo')
             uni.redirectTo({
-              url: '/pages/login/login'
+              url: '/pkg-login/index'
             })
           }
         }

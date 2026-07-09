@@ -42,7 +42,7 @@
         </view>
         
         <view class="stats-grid">
-          <view class="stat-item">
+          <view class="stat-item" @click="showActiveGroups = true">
             <view class="stat-icon" style="background-color: #eff6ff;">
               <u-icon name="grid-fill" size="24" color="#3b82f6"></u-icon>
             </view>
@@ -51,7 +51,7 @@
               <text class="stat-value">{{ activeGroupCount || groups.length || 0 }}</text>
             </view>
           </view>
-          <view class="stat-item">
+          <view class="stat-item" @click="showActiveMembers = true">
             <view class="stat-icon" style="background-color: #fef3c7;">
               <u-icon name="account-fill" size="24" color="#f59e0b"></u-icon>
             </view>
@@ -123,6 +123,50 @@
         </view>
       </view>
     </u-popup>
+
+    <u-popup :show="showActiveGroups" mode="bottom" :round="16" @close="showActiveGroups = false" :safeAreaInsetBottom="true">
+      <view class="popup-panel">
+        <view class="popup-title-bar">
+          <text class="popup-title">活跃群组</text>
+          <u-icon name="close" size="20" color="#9ca3af" @click="showActiveGroups = false"></u-icon>
+        </view>
+        <scroll-view scroll-y class="popup-scroll">
+          <view v-for="group in activeGroupList" :key="group.groupId" class="popup-group-block">
+            <view class="popup-group-header" @click="goToGroupDetail(group.groupId)">
+              <text class="popup-group-name">{{ group.groupName }}</text>
+              <u-icon name="arrow-right" size="14" color="#9ca3af"></u-icon>
+            </view>
+            <view v-for="member in group.members" :key="member.name" class="popup-member-row">
+              <text class="popup-member-name">{{ member.name }}</text>
+              <text class="popup-member-score" :class="member.totalScore >= 0 ? 'score-positive' : 'score-negative'">{{ member.totalScore >= 0 ? '+' : '' }}{{ member.totalScore }}</text>
+            </view>
+          </view>
+          <view v-if="activeGroupList.length === 0" class="popup-empty">暂无数据</view>
+        </scroll-view>
+      </view>
+    </u-popup>
+
+    <u-popup :show="showActiveMembers" mode="bottom" :round="16" @close="showActiveMembers = false" :safeAreaInsetBottom="true">
+      <view class="popup-panel">
+        <view class="popup-title-bar">
+          <text class="popup-title">活跃成员</text>
+          <u-icon name="close" size="20" color="#9ca3af" @click="showActiveMembers = false"></u-icon>
+        </view>
+        <scroll-view scroll-y class="popup-scroll">
+          <view v-for="member in activeMemberList" :key="member.name" class="popup-member-block">
+            <view class="popup-member-header">
+              <text class="popup-member-name">{{ member.name }}</text>
+              <text class="popup-member-total" :class="member.totalScore >= 0 ? 'score-positive' : 'score-negative'">{{ member.totalScore >= 0 ? '+' : '' }}{{ member.totalScore }}分</text>
+            </view>
+            <view v-for="gs in member.groupScores" :key="gs.groupId" class="popup-member-row">
+              <text class="popup-group-sub">{{ gs.groupName }}</text>
+              <text class="popup-member-score" :class="gs.score >= 0 ? 'score-positive' : 'score-negative'">{{ gs.score >= 0 ? '+' : '' }}{{ gs.score }}</text>
+            </view>
+          </view>
+          <view v-if="activeMemberList.length === 0" class="popup-empty">暂无数据</view>
+        </scroll-view>
+      </view>
+    </u-popup>
   </view>
 </template>
 
@@ -144,7 +188,11 @@ export default {
       monthScore: 0,
       totalScore: 0,
       activeGroupCount: 0,
-      activeMemberCount: 0
+      activeMemberCount: 0,
+      showActiveGroups: false,
+      showActiveMembers: false,
+      activeGroupList: [],
+      activeMemberList: []
     }
   },
 
@@ -231,6 +279,8 @@ export default {
         const activeGroups = new Set()
         const activeMembers = new Set()
         const groupStats = {}
+        const groupMemberScores = {}
+        const memberGroupScores = {}
 
         const scores = await queryDocs('scores', {
           creatorId: userInfo.username
@@ -259,6 +309,22 @@ export default {
                   monthTotal += score
                 }
               }
+
+              if (!groupMemberScores[scoreRecord.groupId]) {
+                groupMemberScores[scoreRecord.groupId] = {}
+              }
+              if (!groupMemberScores[scoreRecord.groupId][user.name]) {
+                groupMemberScores[scoreRecord.groupId][user.name] = 0
+              }
+              groupMemberScores[scoreRecord.groupId][user.name] += score
+
+              if (!memberGroupScores[user.name]) {
+                memberGroupScores[user.name] = {}
+              }
+              if (!memberGroupScores[user.name][scoreRecord.groupId]) {
+                memberGroupScores[user.name][scoreRecord.groupId] = 0
+              }
+              memberGroupScores[user.name][scoreRecord.groupId] += score
             })
           }
 
@@ -274,6 +340,34 @@ export default {
           userScore: groupStats[group._id || group.id]?.userScore || 0
         }))
 
+        this.activeGroupList = this.groups
+          .filter(g => activeGroups.has(g._id || g.id))
+          .map(group => {
+            const groupId = group._id || group.id
+            const memberScores = groupMemberScores[groupId] || {}
+            return {
+              groupId,
+              groupName: group.groupName,
+              members: Object.entries(memberScores).map(([name, totalScore]) => ({ name, totalScore }))
+            }
+          })
+
+        this.activeMemberList = Object.entries(memberGroupScores).map(([name, groupScores]) => {
+          const groupScoreList = Object.entries(groupScores).map(([groupId, score]) => {
+            const group = this.groups.find(g => (g._id || g.id) === groupId)
+            return {
+              groupId,
+              groupName: group ? group.groupName : '未知群组',
+              score
+            }
+          })
+          return {
+            name,
+            totalScore: groupScoreList.reduce((sum, gs) => sum + gs.score, 0),
+            groupScores: groupScoreList
+          }
+        })
+
         this.todayScore = todayTotal
         this.weekScore = weekTotal
         this.monthScore = monthTotal
@@ -288,7 +382,7 @@ export default {
     goToGroupDetail(groupId) {
       if (!groupId) return;
       uni.navigateTo({
-        url: '/pages/group/index?id=' + groupId
+        url: '/pkg-group/index?id=' + groupId
       })
     },
 
@@ -301,7 +395,7 @@ export default {
       const userInfo = uni.getStorageSync('userInfo')
       if (!userInfo || !userInfo.username) {
         uni.navigateTo({
-          url: '/pages/login/login'
+          url: '/pkg-login/index'
         })
         return
       }
@@ -377,6 +471,7 @@ export default {
   justify-content: space-between;
   padding: 0 24px;
   margin-top: 16px;
+  box-sizing: border-box;
 }
 
 .user-info-box {
@@ -438,6 +533,7 @@ export default {
   margin-bottom: 32px;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .metrics-content {
@@ -498,6 +594,7 @@ export default {
   align-items: center;
   gap: 12px;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
 }
 
 .stat-icon {
@@ -563,6 +660,7 @@ export default {
   gap: 16px;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   border: 1px solid #f9fafb;
+  box-sizing: border-box;
 }
 
 .group-icon-box {
@@ -595,6 +693,7 @@ export default {
   border-radius: 16rpx;
   padding: 40rpx;
   width: 300px;
+  box-sizing: border-box;
 }
 
 .dialog-title {
@@ -616,5 +715,109 @@ export default {
 
 .dialog-buttons u-button {
   flex: 1;
+}
+
+.popup-panel {
+  background-color: #fff;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  box-sizing: border-box;
+}
+
+.popup-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.popup-scroll {
+  max-height: 60vh;
+  padding: 0 20px 20px;
+  box-sizing: border-box;
+}
+
+.popup-group-block {
+  margin-top: 16px;
+}
+
+.popup-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  box-sizing: border-box;
+}
+
+.popup-group-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.popup-member-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f9fafb;
+  box-sizing: border-box;
+}
+
+.popup-member-name {
+  font-size: 14px;
+  color: #374151;
+}
+
+.popup-member-score {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.popup-member-block {
+  margin-top: 16px;
+}
+
+.popup-member-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  box-sizing: border-box;
+}
+
+.popup-member-total {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.popup-group-sub {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.popup-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px 0;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.score-positive {
+  color: #22C55E;
+}
+
+.score-negative {
+  color: #ef4444;
 }
 </style>

@@ -76,7 +76,7 @@
 
 <script>
 import qiunDataCharts from '../qiun-data-charts/components/qiun-data-charts/qiun-data-charts.vue';
-import { ensureLogin, queryDocs } from '../../../utils/cloudbase'
+import { ensureLogin, queryDocs } from '@/utils/cloudbase'
 
 export default {
   components: {

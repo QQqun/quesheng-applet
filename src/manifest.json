@@ -94,6 +94,7 @@
     },
     "mp-weixin": {
         "appid": "wx21137dd4de382325",
+        "cloudfunctionRoot": "cloudfunctions/",
         "setting": {
             "urlCheck": false
         },

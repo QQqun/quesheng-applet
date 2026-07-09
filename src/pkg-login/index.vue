@@ -46,7 +46,8 @@
 </template>
 
 <script>
-import { ensureLogin, addDoc, queryDocs, updateDoc } from '../../utils/cloudbase'
+import { ensureLogin, addDoc, queryDocs, updateDoc } from '@/utils/cloudbase'
+import md5 from '@/utils/md5'
 
 export default {
   data() {
@@ -86,25 +87,38 @@ export default {
         await ensureLogin()
 
         const existingUsers = await queryDocs('users', { username: this.username.trim() })
-
-        const userInfo = {
-          username: this.username.trim(),
-          nickName: this.username.trim(),
-          avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
-        }
+        const passwordMd5 = md5(this.password.trim())
 
         if (existingUsers.length > 0) {
           const cloudUser = existingUsers[0]
-          userInfo.nickName = cloudUser.nickName || cloudUser.username
-          userInfo.avatarUrl = cloudUser.avatarUrl || userInfo.avatarUrl
+          if (cloudUser.password !== passwordMd5) {
+            uni.showToast({
+              title: '账号或密码错误',
+              icon: 'none'
+            })
+            return
+          }
+          const userInfo = {
+            username: this.username.trim(),
+            nickName: cloudUser.nickName || cloudUser.username,
+            avatarUrl: cloudUser.avatarUrl || 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
+          }
           await updateDoc('users', cloudUser._id, {
             lastLoginTime: new Date()
           })
+          uni.setStorageSync('userInfo', userInfo)
         } else {
+          const userInfo = {
+            username: this.username.trim(),
+            nickName: this.username.trim(),
+            avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg',
+            password: passwordMd5
+          }
           await addDoc('users', userInfo)
+          delete userInfo.password
+          uni.setStorageSync('userInfo', userInfo)
         }
 
-        uni.setStorageSync('userInfo', userInfo)
         uni.setStorageSync('token', 'cloudbase-token-' + Date.now())
 
         uni.showToast({

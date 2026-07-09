@@ -11,19 +11,6 @@
 			}
 		},
 		{
-			"path": "pages/login/login",
-			"style": {
-				"navigationBarTitleText": "登录",
-				"disableScroll": true
-			}
-		},
-		{
-			"path": "pages/group/index",
-			"style": {
-				"navigationBarTitleText": "群组"
-			}
-		},
-		{
 			"path": "pages/my/my",
 			"style": {
 				"navigationBarTitleText": "我的"
@@ -31,14 +18,43 @@
 		}
 	],
 	"subPackages": [{
-		"root": "pkg-statistics",
-		"pages": [{
-			"path": "statistics/pages/index",
-			"style": {
-				"navigationBarTitleText": "积分统计"
-			}
-		}]
-	}],
+			"root": "pkg-group",
+			"pages": [{
+				"path": "index",
+				"style": {
+					"navigationBarTitleText": "群组"
+				}
+			}]
+		},
+		{
+			"root": "pkg-login",
+			"pages": [{
+				"path": "index",
+				"style": {
+					"navigationBarTitleText": "登录",
+					"disableScroll": true
+				}
+			}]
+		},
+		{
+				"root": "pkg-profile",
+				"pages": [{
+					"path": "index",
+					"style": {
+						"navigationBarTitleText": "编辑资料"
+					}
+				}]
+			},
+			{
+				"root": "pkg-statistics",
+			"pages": [{
+				"path": "statistics/pages/index",
+				"style": {
+					"navigationBarTitleText": "积分统计"
+				}
+			}]
+		}
+	],
 	"globalStyle": {
 		"pageOrientation": "portrait",
 		"navigationBarTitleText": "雀圣小程序",
