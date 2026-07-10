@@ -74,6 +74,7 @@
 import { ensureLogin, ensureCollections, addDoc, queryDocs, updateDoc } from '@/utils/cloudbase'
 import { getUuid } from '@/utils'
 import md5 from '@/utils/md5'
+import { createNotification } from '@/utils/notification'
 
 export default {
   data() {
@@ -266,6 +267,31 @@ export default {
       
       this.showAddMemberDialog = false;
       this.newMemberName = '';
+
+      // 为群组已有成员发送新成员通知
+      try {
+        const userInfo = uni.getStorageSync('userInfo') || {}
+        const creatorName = userInfo.nickName || userInfo.username
+        const group = await queryDocs('groups', { _id: this.groupId })
+        const groupName = group.length > 0 ? group[0].groupName : '群组'
+        for (const m of this.members) {
+          if (m.name !== creatorName && m.name !== memberName) {
+            const memberUsers = await queryDocs('users', { nickName: m.name })
+            if (memberUsers.length > 0) {
+              await createNotification({
+                userId: memberUsers[0].username,
+                type: 'new_member',
+                title: '新成员加入',
+                content: `${memberName}加入了"${groupName}"`,
+                groupId: this.groupId,
+                groupName
+              })
+            }
+          }
+        }
+      } catch (notifyErr) {
+        console.error('发送通知失败:', notifyErr)
+      }
     },
     
     handleCalendarConfirm(e) {
@@ -378,6 +404,30 @@ export default {
           title: '保存成功',
           icon: 'success'
         });
+
+        // 为群组其他成员发送积分变动通知
+        try {
+          const creatorName = userInfo.nickName || userInfo.username
+          const group = await queryDocs('groups', { _id: this.groupId })
+          const groupName = group.length > 0 ? group[0].groupName : '群组'
+          for (const user of this.users) {
+            if (user.name !== creatorName) {
+              const memberUsers = await queryDocs('users', { nickName: user.name })
+              if (memberUsers.length > 0) {
+                await createNotification({
+                  userId: memberUsers[0].username,
+                  type: 'score_change',
+                  title: '积分变动',
+                  content: `${creatorName}在"${groupName}"录入了新积分`,
+                  groupId: this.groupId,
+                  groupName
+                })
+              }
+            }
+          }
+        } catch (notifyErr) {
+          console.error('发送通知失败:', notifyErr)
+        }
       } catch (err) {
         console.error('保存失败:', err)
         uni.showToast({

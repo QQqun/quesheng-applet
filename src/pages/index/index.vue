@@ -16,8 +16,9 @@
             <view class="username-text">{{ userInfo.nickName || '未设置昵称' }}</view>
           </view>
         </view>
-        <view class="notification-btn">
+        <view class="notification-btn" @click="goToNotifications">
           <u-icon name="bell" size="20" color="#9ca3af"></u-icon>
+          <view class="badge" v-if="unreadCount > 0">{{ unreadCount > 99 ? '99+' : unreadCount }}</view>
         </view>
       </view>
 
@@ -192,7 +193,8 @@ export default {
       showActiveGroups: false,
       showActiveMembers: false,
       activeGroupList: [],
-      activeMemberList: []
+      activeMemberList: [],
+      unreadCount: 0
     }
   },
 
@@ -201,6 +203,7 @@ export default {
     this.getRecentGroups()
     this.loadStatistics()
     this.updateGreeting()
+    this.loadUnreadCount()
   },
   computed: {
     displayedGroups() {
@@ -438,7 +441,26 @@ export default {
           icon: 'none'
         })
       }
-    }
+    },
+    async loadUnreadCount() {
+      try {
+        await ensureLogin()
+        const userInfo = uni.getStorageSync('userInfo')
+        const notifications = await queryDocs('notifications', {
+          userId: userInfo.username,
+          isRead: false
+        })
+        this.unreadCount = notifications.length
+      } catch (err) {
+        console.error('获取未读数失败:', err)
+      }
+    },
+    goToNotifications() {
+      uni.navigateTo({
+        url: '/pkg-statistics/statistics/pages/notifications'
+      })
+    },
+
   }
 }
 </script>
@@ -515,6 +537,24 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background-color: #ef4444;
+  color: white;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-sizing: border-box;
 }
 
 .content-scroll-area {

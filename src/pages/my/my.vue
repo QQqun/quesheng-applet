@@ -14,6 +14,21 @@
         <text class="function-text">数据统计</text>
         <text class="arrow">→</text>
       </view>
+      <view class="function-item" @click="goToLeaderboard">
+        <text class="function-icon">🏆</text>
+        <text class="function-text">积分排行</text>
+        <text class="arrow">→</text>
+      </view>
+      <view class="function-item" @click="goToLeaderboard('settlement')">
+        <text class="function-icon">📋</text>
+        <text class="function-text">周期结算</text>
+        <text class="arrow">→</text>
+      </view>
+      <view class="function-item" @click="goToNotifications">
+        <text class="function-icon">🔔</text>
+        <text class="function-text">消息通知</text>
+        <text class="arrow">→</text>
+      </view>
     </view>
 
     <view class="logout-btn-container">
@@ -66,6 +81,15 @@ export default {
     goToStatistics() {
       uni.navigateTo({
         url: '/pkg-statistics/statistics/pages/index'
+      })
+    },
+    goToLeaderboard(tab) {
+      const url = tab ? '/pkg-statistics/statistics/pages/leaderboard?tab=' + tab : '/pkg-statistics/statistics/pages/leaderboard'
+      uni.navigateTo({ url })
+    },
+    goToNotifications() {
+      uni.navigateTo({
+        url: '/pkg-statistics/statistics/pages/notifications'
       })
     },
     goToProfile() {

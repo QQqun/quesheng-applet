@@ -71,6 +71,24 @@ async function queryDocs(collection, whereObj) {
   return res.data || []
 }
 
+async function queryAllDocs(collection, whereObj) {
+  const allData = []
+  let batch = 0
+  const BATCH_SIZE = 20
+  while (true) {
+    let query = getCollection(collection).skip(batch * BATCH_SIZE).limit(BATCH_SIZE)
+    if (whereObj) {
+      query = query.where(whereObj)
+    }
+    const res = await query.get()
+    const data = res.data || []
+    allData.push(...data)
+    if (data.length < BATCH_SIZE) break
+    batch++
+  }
+  return allData
+}
+
 const auth = {
   async signOut() {
     // 微信云开发无显式登出，清除本地登录态即可
@@ -88,5 +106,6 @@ export {
   addDoc,
   updateDoc,
   removeDoc,
-  queryDocs
+  queryDocs,
+  queryAllDocs
 }

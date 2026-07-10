@@ -46,14 +46,26 @@
 				}]
 			},
 			{
-				"root": "pkg-statistics",
-			"pages": [{
-				"path": "statistics/pages/index",
-				"style": {
-					"navigationBarTitleText": "积分统计"
-				}
-			}]
-		}
+					"root": "pkg-statistics",
+				"pages": [{
+					"path": "statistics/pages/index",
+					"style": {
+						"navigationBarTitleText": "积分统计"
+					}
+				},
+				{
+					"path": "statistics/pages/leaderboard",
+					"style": {
+						"navigationBarTitleText": "排行榜"
+					}
+				},
+				{
+					"path": "statistics/pages/notifications",
+					"style": {
+						"navigationBarTitleText": "消息通知"
+					}
+				}]
+			}
 	],
 	"globalStyle": {
 		"pageOrientation": "portrait",
