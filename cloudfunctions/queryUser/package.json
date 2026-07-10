@@ -1,0 +1,9 @@
+{
+  "name": "queryUser",
+  "version": "1.0.0",
+  "description": "以管理员权限查询用户信息（绕过客户端安全规则限制）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

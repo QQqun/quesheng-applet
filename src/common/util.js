@@ -1,3 +1,5 @@
+import dayjs from 'dayjs'
+
 function formatTime(time) {
 	if (typeof time !== 'number' || time < 0) {
 		return time
@@ -49,20 +51,15 @@ var dateUtils = {
 		return humanize || '刚刚';
 	},
 	format: function(dateStr) {
-		var date = this.parse(dateStr)
-		var diff = Date.now() - date.getTime();
+		var d = dayjs(dateStr)
+		var diff = dayjs().diff(d)
 		if (diff < this.UNITS['天']) {
 			return this.humanize(diff);
 		}
-		var _format = function(number) {
-			return (number < 10 ? ('0' + number) : number);
-		};
-		return date.getFullYear() + '/' + _format(date.getMonth() + 1) + '/' + _format(date.getDate()) + '-' +
-			_format(date.getHours()) + ':' + _format(date.getMinutes());
+		return d.format('YYYY/MM/DD-HH:mm')
 	},
-	parse: function(str) { //将"yyyy-mm-dd HH:MM:ss"格式的字符串，转化为一个Date对象
-		var a = str.split(/[^0-9]/);
-		return new Date(a[0], a[1] - 1, a[2], a[3], a[4], a[5]);
+	parse: function(str) {
+		return dayjs(str).toDate()
 	}
 };
 

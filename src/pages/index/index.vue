@@ -13,7 +13,7 @@
           </view>
           <view>
             <view class="greeting-text">{{ greetingText }}</view>
-            <view class="username-text">{{ userInfo.nickName || '未设置昵称' }}</view>
+            <view class="username-text">{{ userInfo.nickName || userInfo.phone || '未知用户' }}</view>
           </view>
         </view>
         <view class="notification-btn" @click="goToNotifications">
@@ -172,7 +172,8 @@
 </template>
 
 <script>
-import { ensureLogin, addDoc, queryDocs } from '../../utils/cloudbase'
+import dayjs from 'dayjs'
+import { ensureLogin, addDoc, queryDocs, queryAllDocs, db } from '../../utils/cloudbase'
 import { getUuid } from '../../utils'
 
 export default {
@@ -198,9 +199,9 @@ export default {
     }
   },
 
-  onShow() {
+  async onShow() {
     this.getUserInfo()
-    this.getRecentGroups()
+    await this.getRecentGroups()
     this.loadStatistics()
     this.updateGreeting()
     this.loadUnreadCount()
@@ -226,11 +227,25 @@ export default {
       try {
         await ensureLogin()
         const userInfo = uni.getStorageSync('userInfo')
-        const groups = await queryDocs('groups', {
-          creatorId: userInfo.username
+        const userPhone = userInfo.phone || ''
+        const userName = userInfo.nickName || userInfo.username || ''
+        
+        let groups = []
+        if (userPhone) {
+          groups = await queryDocs('groups', { members: userPhone })
+        }
+        if (groups.length === 0 && userName) {
+          const legacyGroups = await queryDocs('groups', { members: userName })
+          groups = groups.concat(legacyGroups)
+        }
+        const seen = new Set()
+        this.groups = groups.filter(g => {
+          const key = g._id || g.id
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
         })
-        this.groups = groups
-        uni.setStorageSync('groups', groups)
+        uni.setStorageSync('groups', this.groups)
       } catch (err) {
         console.error('获取群组失败:', err)
         const groups = uni.getStorageSync('groups')
@@ -239,9 +254,9 @@ export default {
     },
     
     updateGreeting() {
-      const now = new Date()
-      const hour = now.getHours()
-      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`
+      const now = dayjs()
+      const hour = now.hour()
+      const dateStr = now.format('YYYY/MM/DD')
       
       let greeting = ''
       if (hour < 6) {
@@ -263,17 +278,15 @@ export default {
       try {
         await ensureLogin()
         const userInfo = uni.getStorageSync('userInfo')
-        const userName = userInfo.nickName || userInfo.username || '雀圣'
+        const userPhone = userInfo.phone || ''
+        const userName = userInfo.nickName || userPhone
 
-        const today = new Date()
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+        const todayStr = dayjs().format('YYYY-MM-DD')
         
-        const weekStart = new Date(today)
-        const dayOfWeek = today.getDay() || 7
-        weekStart.setDate(today.getDate() - dayOfWeek + 1)
-        const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
+        const dayOfWeek = dayjs().day() || 7
+        const weekStartStr = dayjs().subtract(dayOfWeek - 1, 'day').format('YYYY-MM-DD')
         
-        const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+        const monthStart = dayjs().format('YYYY-MM')
 
         let todayTotal = 0
         let weekTotal = 0
@@ -285,9 +298,14 @@ export default {
         const groupMemberScores = {}
         const memberGroupScores = {}
 
-        const scores = await queryDocs('scores', {
-          creatorId: userInfo.username
-        })
+        const groupIds = this.groups.map(g => g._id || g.id)
+        let scores = []
+        if (groupIds.length > 0) {
+          const _ = db.command
+          scores = await queryAllDocs('scores', {
+            groupId: _.in(groupIds)
+          })
+        }
 
         scores.forEach(scoreRecord => {
           const groupMembers = new Set()
@@ -299,7 +317,8 @@ export default {
               groupMembers.add(user.name)
               activeMembers.add(user.name)
               const score = parseInt(user.score) || 0
-              if (user.name === userName) {
+              const isCurrentUser = (user.phone && user.phone === userPhone) || user.name === userName || user.name === userInfo.username
+              if (isCurrentUser) {
                 userTotalScore += score
                 total += score
                 if (scoreRecord.date === todayStr) {
@@ -396,9 +415,9 @@ export default {
     },
     showAddGroupDialog() {
       const userInfo = uni.getStorageSync('userInfo')
-      if (!userInfo || !userInfo.username) {
+      if (!userInfo || !userInfo.phone) {
         uni.navigateTo({
-          url: '/pkg-login/index'
+          url: '/pkg-login/login'
         })
         return
       }
@@ -425,8 +444,8 @@ export default {
         const group = {
           id: getUuid(),
           groupName: this.groupName,
-          creatorId: userInfo.username,
-          members: [userInfo.nickName || userInfo.username]
+          creatorId: userInfo.phone,
+          members: [userInfo.phone]
         }
         const res = await addDoc('groups', group)
         group._id = res.id
@@ -446,10 +465,19 @@ export default {
       try {
         await ensureLogin()
         const userInfo = uni.getStorageSync('userInfo')
-        const notifications = await queryDocs('notifications', {
-          userId: userInfo.username,
-          isRead: false
-        })
+        let notifications = []
+        if (userInfo.phone) {
+          notifications = await queryDocs('notifications', {
+            userId: userInfo.phone,
+            isRead: false
+          })
+        }
+        if (notifications.length === 0 && userInfo.username) {
+          notifications = await queryDocs('notifications', {
+            userId: userInfo.username,
+            isRead: false
+          })
+        }
         this.unreadCount = notifications.length
       } catch (err) {
         console.error('获取未读数失败:', err)

@@ -51,7 +51,8 @@
         </view>
       </view>
 
-      <view class="share-section" v-if="leaderboardList.length > 0">
+      <!-- 分享功能已隐藏 -->
+      <view class="share-section" v-if="false">
         <u-button text="分享排行榜" type="primary" color="#22C55E" @click="handleShareLeaderboard"></u-button>
       </view>
     </view>
@@ -92,7 +93,7 @@
         </view>
         <view class="settlement-actions">
           <u-button text="生成结算卡" type="primary" color="#22C55E" @click="generateSettlement" :loading="generating"></u-button>
-          <u-button text="分享" @click="handleShareSettlement" v-if="settlementData.length > 0"></u-button>
+          <!-- <u-button text="分享" @click="handleShareSettlement" v-if="settlementData.length > 0"></u-button> -->
         </view>
       </view>
 
@@ -104,12 +105,12 @@
       </view>
     </view>
 
-    <!-- 分享 Canvas 和预览 -->
-    <view class="share-canvas-wrapper" v-if="showShareCanvas">
-      <canvas id="shareCanvas" type="2d" :style="{ width: '750rpx', height: '1000rpx' }"></canvas>
+    <!-- 分享 Canvas 和预览（已隐藏） -->
+    <view class="share-canvas-wrapper" v-if="false">
+      <canvas id="shareCanvas" type="2d" :style="{ width: '750rpx', height: '1200rpx' }"></canvas>
     </view>
 
-    <u-popup :show="showSharePreview" mode="center" :round="16" @close="showSharePreview = false" :safeAreaInsetBottom="false">
+    <u-popup :show="false" mode="center" :round="16" @close="showSharePreview = false" :safeAreaInsetBottom="false">
       <view class="share-preview">
         <image :src="shareImagePath" mode="widthFix" class="share-image"></image>
         <view class="share-actions">
@@ -122,7 +123,8 @@
 </template>
 
 <script>
-import { ensureLogin, queryDocs, queryAllDocs, addDoc } from '@/utils/cloudbase'
+import dayjs from 'dayjs'
+import { ensureLogin, queryDocs, queryAllDocs, addDoc, db } from '@/utils/cloudbase'
 import { createNotification } from '@/utils/notification'
 import { drawShareCard, saveToAlbum } from '@/utils/shareCard'
 
@@ -167,24 +169,44 @@ export default {
     }
     this.initData()
   },
-  onShareAppMessage() {
-    return {
-      title: '雀圣积分排行榜',
-      path: '/pages/index/index'
-    }
-  },
+  // onShareAppMessage() {
+  //   return {
+  //     title: '雀圣积分排行榜',
+  //     path: '/pages/index/index'
+  //   }
+  // },
   methods: {
     async initData() {
       await this.loadGroups()
       await this.loadAllScores()
       this.loadLeaderboard()
+      if (this.activeTab === 'settlement' && this.settlementGroupSelected) {
+        this.loadSettlement()
+      }
     },
 
     async loadGroups() {
       try {
         await ensureLogin()
         const userInfo = uni.getStorageSync('userInfo')
-        const groups = await queryDocs('groups', { creatorId: userInfo.username })
+        const userPhone = userInfo.phone || ''
+        const userName = userInfo.nickName || userPhone
+        
+        let groups = []
+        if (userPhone) {
+          groups = await queryDocs('groups', { members: userPhone })
+        }
+        if (groups.length === 0 && userName) {
+          const legacyGroups = await queryDocs('groups', { members: userName })
+          groups = groups.concat(legacyGroups)
+        }
+        const seen = new Set()
+        groups = groups.filter(g => {
+          const key = g._id || g.id
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
         this.groupList = groups
         this.allGroups = groups.map(g => ({
           text: g.groupName,
@@ -207,9 +229,15 @@ export default {
 
     async loadAllScores() {
       try {
-        await ensureLogin()
-        const userInfo = uni.getStorageSync('userInfo')
-        this.allScores = await queryAllDocs('scores', { creatorId: userInfo.username })
+        const groupIds = this.groupList.map(g => g._id || g.id)
+        if (groupIds.length === 0) {
+          this.allScores = []
+          return
+        }
+        const _ = db.command
+        this.allScores = await queryAllDocs('scores', {
+          groupId: _.in(groupIds)
+        })
       } catch (err) {
         console.error('加载积分失败:', err)
       }
@@ -230,21 +258,18 @@ export default {
     },
 
     filterByPeriod(scores, period) {
-      const today = new Date()
-      const todayStr = this.formatDate(today)
+      const todayStr = dayjs().format('YYYY-MM-DD')
 
       if (period === 'total') return scores
 
       if (period === 'week') {
-        const dayOfWeek = today.getDay() || 7
-        const weekStart = new Date(today)
-        weekStart.setDate(today.getDate() - dayOfWeek + 1)
-        const weekStartStr = this.formatDate(weekStart)
+        const dayOfWeek = dayjs().day() || 7
+        const weekStartStr = dayjs().subtract(dayOfWeek - 1, 'day').format('YYYY-MM-DD')
         return scores.filter(s => s.date >= weekStartStr && s.date <= todayStr)
       }
 
       if (period === 'month') {
-        const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+        const monthStart = dayjs().format('YYYY-MM') + '-01'
         return scores.filter(s => s.date >= monthStart && s.date <= todayStr)
       }
 
@@ -294,20 +319,16 @@ export default {
     },
 
     getWeekRange() {
-      const now = new Date()
-      const day = now.getDay() || 7
-      const start = new Date(now)
-      start.setDate(now.getDate() - day + 1)
-      const end = new Date(start)
-      end.setDate(start.getDate() + 6)
-      return { start: this.formatDate(start), end: this.formatDate(end) }
+      const day = dayjs().day() || 7
+      const start = dayjs().subtract(day - 1, 'day')
+      const end = start.add(6, 'day')
+      return { start: start.format('YYYY-MM-DD'), end: end.format('YYYY-MM-DD') }
     },
 
     getMonthRange() {
-      const now = new Date()
-      const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-      const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${lastDay}`
+      const now = dayjs()
+      const start = now.format('YYYY-MM') + '-01'
+      const end = now.endOf('month').format('YYYY-MM-DD')
       return { start, end }
     },
 
@@ -351,7 +372,7 @@ export default {
           periodType: this.settlementPeriod,
           periodStart: range.start,
           periodEnd: range.end,
-          creatorId: userInfo.username,
+          creatorId: userInfo.phone || '',
           users: this.settlementData.map((item, index) => ({
             name: item.name,
             totalScore: item.totalScore,
@@ -362,20 +383,17 @@ export default {
         // 为群组成员创建通知
         const group = this.groupList.find(g => (g._id || g.id) === this.settlementGroupSelected)
         if (group && group.members) {
-          const creatorName = userInfo.nickName || userInfo.username
-          for (const memberName of group.members) {
-            if (memberName !== creatorName) {
-              const memberUsers = await queryDocs('users', { nickName: memberName })
-              if (memberUsers.length > 0) {
-                await createNotification({
-                  userId: memberUsers[0].username,
-                  type: 'settlement',
-                  title: '周期结算',
-                  content: `${this.settlementGroupName} ${this.settlementPeriodLabel}已生成`,
-                  groupId: this.settlementGroupSelected,
-                  groupName: this.settlementGroupName
-                })
-              }
+          const creatorPhone = userInfo.phone || ''
+          for (const memberValue of group.members) {
+            if (memberValue !== creatorPhone) {
+              await createNotification({
+                userId: memberValue,
+                type: 'settlement',
+                title: '周期结算',
+                content: `${this.settlementGroupName} ${this.settlementPeriodLabel}已生成`,
+                groupId: this.settlementGroupSelected,
+                groupName: this.settlementGroupName
+              })
             }
           }
         }
@@ -390,7 +408,7 @@ export default {
     },
 
     formatDate(date) {
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      return dayjs(date).format('YYYY-MM-DD')
     },
 
     async handleShareLeaderboard() {

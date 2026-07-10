@@ -6,15 +6,17 @@
       </view>
       <view class="title">积分助手</view>
       <view class="subtitle">
-        请输入账号密码登录
+        请输入手机号和密码登录
       </view>
       
       <view class="form-container">
         <view class="input-item">
-          <u-icon name="account-fill" color="#9ca3af" size="20"></u-icon>
+          <u-icon name="phone-fill" color="#9ca3af" size="20"></u-icon>
           <u-input 
-            v-model="username" 
-            placeholder="请输入账号" 
+            v-model="phone" 
+            placeholder="请输入手机号" 
+            type="number"
+            maxlength="11"
             :border="false"
             clearable
             style="flex: 1; margin-left: 12px;"
@@ -46,28 +48,55 @@
 </template>
 
 <script>
+import dayjs from 'dayjs'
 import { ensureLogin, addDoc, queryDocs, updateDoc } from '@/utils/cloudbase'
+import { isValidPhone } from '@/utils'
 import md5 from '@/utils/md5'
+
+async function cloudQuery(collection, query) {
+  try {
+    const { result } = await wx.cloud.callFunction({
+      name: 'queryUser',
+      data: { collection, query }
+    })
+    return result.data || []
+  } catch (err) {
+    console.error('云函数查询失败，降级使用客户端查询:', err)
+    return await queryDocs(collection, query)
+  }
+}
+
+const DEFAULT_AVATAR = 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
 
 export default {
   data() {
     return {
-      username: '',
+      phone: '',
       password: '',
       loading: false
     }
   },
   onLoad() {
     const userInfo = uni.getStorageSync('userInfo')
-    if (userInfo && userInfo.username) {
-      this.username = userInfo.username
+    if (userInfo && userInfo.phone) {
+      this.phone = userInfo.phone
+    } else if (userInfo && userInfo.username) {
+      this.phone = userInfo.username
     }
   },
   methods: {
     async handleLogin() {
-      if (!this.username.trim()) {
+      if (!this.phone.trim()) {
         uni.showToast({
-          title: '请输入账号',
+          title: '请输入手机号',
+          icon: 'none'
+        })
+        return
+      }
+
+      if (!isValidPhone(this.phone.trim())) {
+        uni.showToast({
+          title: '请输入正确的手机号',
           icon: 'none'
         })
         return
@@ -86,32 +115,53 @@ export default {
       try {
         await ensureLogin()
 
-        const existingUsers = await queryDocs('users', { username: this.username.trim() })
+        const inputPhone = this.phone.trim()
         const passwordMd5 = md5(this.password.trim())
+
+        let existingUsers = await cloudQuery('users', { phone: inputPhone })
+
+        if (existingUsers.length === 0) {
+          const legacyUsers = await cloudQuery('users', { username: inputPhone })
+          if (legacyUsers.length > 0) {
+            await updateDoc('users', legacyUsers[0]._id, { phone: inputPhone })
+            existingUsers = legacyUsers
+          }
+        }
 
         if (existingUsers.length > 0) {
           const cloudUser = existingUsers[0]
           if (cloudUser.password !== passwordMd5) {
             uni.showToast({
-              title: '账号或密码错误',
+              title: '手机号或密码错误',
               icon: 'none'
             })
             return
           }
           const userInfo = {
-            username: this.username.trim(),
-            nickName: cloudUser.nickName || cloudUser.username,
-            avatarUrl: cloudUser.avatarUrl || 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
+            phone: inputPhone,
+            nickName: cloudUser.nickName || cloudUser.nickname || '',
+            avatarUrl: cloudUser.avatarUrl || DEFAULT_AVATAR
           }
           await updateDoc('users', cloudUser._id, {
-            lastLoginTime: new Date()
+            lastLoginTime: dayjs().toDate()
           })
           uni.setStorageSync('userInfo', userInfo)
         } else {
+          const confirmResult = await new Promise((resolve) => {
+            uni.showModal({
+              title: '账号不存在',
+              content: '该手机号未注册，是否自动注册并登录？',
+              confirmText: '注册',
+              cancelText: '取消',
+              success: (res) => resolve(res.confirm)
+            })
+          })
+          if (!confirmResult) return
+
           const userInfo = {
-            username: this.username.trim(),
-            nickName: this.username.trim(),
-            avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg',
+            phone: inputPhone,
+            nickName: '',
+            avatarUrl: DEFAULT_AVATAR,
             password: passwordMd5
           }
           await addDoc('users', userInfo)
@@ -119,7 +169,7 @@ export default {
           uni.setStorageSync('userInfo', userInfo)
         }
 
-        uni.setStorageSync('token', 'cloudbase-token-' + Date.now())
+        uni.setStorageSync('token', 'cloudbase-token-' + dayjs().valueOf())
 
         uni.showToast({
           title: '登录成功',
@@ -208,6 +258,7 @@ export default {
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
+  box-sizing: border-box;
 }
 
 .auth-btn {

@@ -1,10 +1,10 @@
 <template>
   <view class="my-container">
     <view class="user-info">
-      <image :src="userInfo.avatarUrl" class="avatar" @click="goToProfile"></image>
+      <image :src="userInfo.avatarUrl || 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'" class="avatar" @click="goToProfile"></image>
       <view class="user-detail">
-        <view class="nickname">{{ userInfo.nickName || '未设置昵称' }}</view>
-        <view class="phone">{{ userInfo.phone || '未绑定手机号' }}</view>
+        <view class="nickname">{{ userInfo.nickName || userInfo.phone || '未设置昵称' }}</view>
+        <view class="phone">{{ userInfo.phone || '' }}</view>
       </view>
     </view>
 
@@ -29,6 +29,11 @@
         <text class="function-text">消息通知</text>
         <text class="arrow">→</text>
       </view>
+      <view class="function-item" @click="goToChangePassword">
+        <text class="function-icon">🔒</text>
+        <text class="function-text">修改密码</text>
+        <text class="arrow">→</text>
+      </view>
     </view>
 
     <view class="logout-btn-container">
@@ -39,6 +44,8 @@
 
 <script>
 import { ensureLogin, queryDocs, auth } from '../../utils/cloudbase'
+
+const DEFAULT_AVATAR = 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
 
 export default {
   data() {
@@ -61,16 +68,16 @@ export default {
 
       try {
         await ensureLogin()
-        const cloudUsers = await queryDocs('users', {
-          username: localUserInfo.username
-        })
+        let cloudUsers = await queryDocs('users', { phone: localUserInfo.phone })
+        if (cloudUsers.length === 0 && localUserInfo.username) {
+          cloudUsers = await queryDocs('users', { username: localUserInfo.username })
+        }
         if (cloudUsers.length > 0) {
           const cloudUser = cloudUsers[0]
           this.userInfo = {
-            username: cloudUser.username,
-            nickName: cloudUser.nickName || cloudUser.username,
-            avatarUrl: cloudUser.avatarUrl || localUserInfo.avatarUrl,
-            phone: cloudUser.phone || ''
+            phone: cloudUser.phone || localUserInfo.phone,
+            nickName: cloudUser.nickName || cloudUser.nickname || localUserInfo.nickName || '',
+            avatarUrl: cloudUser.avatarUrl || localUserInfo.avatarUrl || DEFAULT_AVATAR
           }
           uni.setStorageSync('userInfo', this.userInfo)
         }
@@ -97,6 +104,11 @@ export default {
         url: '/pkg-profile/index'
       })
     },
+    goToChangePassword() {
+      uni.navigateTo({
+        url: '/pkg-password/index'
+      })
+    },
     logout() {
       uni.showModal({
         title: '退出登录',
@@ -111,7 +123,7 @@ export default {
             uni.removeStorageSync('token')
             uni.removeStorageSync('userInfo')
             uni.redirectTo({
-              url: '/pkg-login/index'
+              url: '/pkg-login/login'
             })
           }
         }
@@ -136,6 +148,7 @@ export default {
   padding: 30rpx;
   margin-bottom: 20rpx;
   box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
 }
 
 .avatar {

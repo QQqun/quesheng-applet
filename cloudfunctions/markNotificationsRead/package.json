@@ -1,0 +1,9 @@
+{
+  "name": "markNotificationsRead",
+  "version": "1.0.0",
+  "description": "标记通知已读、更新文档、删除文档",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

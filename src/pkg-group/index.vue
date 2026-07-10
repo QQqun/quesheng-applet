@@ -10,13 +10,13 @@
           <u-icon name="calendar" color="#9ca3af" size="16"></u-icon>
         </view>
       </view>
-      <u-calendar :show="showCalendar" color="#22C55E" :min-date="minDate" :max-date="maxDate" @close="showCalendar = false" @confirm="handleCalendarConfirm"></u-calendar>
+      <u-calendar :show="showCalendar" color="#22C55E" @close="showCalendar = false" @confirm="handleCalendarConfirm"></u-calendar>
     </view>
     
     <view class="section">
       <view class="section-header">
         <text class="section-title">成员列表</text>
-        <view class="add-member-btn" @click="showAddMemberDialog = true">
+        <view class="add-member-btn" @click="openAddMemberDialog">
           <u-icon name="plus-circle" color="#22C55E" size="16" style="margin-right: 4px;"></u-icon>
           <text>添加成员</text>
         </view>
@@ -59,7 +59,10 @@
       <view class="dialog">
         <view class="dialog-title">添加成员</view>
         <view class="input">
-          <u-input v-model="newMemberName" placeholder="请输入成员名称" border="surround"></u-input>
+          <u-input v-model="newMemberPhone" placeholder="请输入手机号(必填)" type="number" maxlength="11" border="surround" @blur="onPhoneBlur"></u-input>
+        </view>
+        <view class="input">
+          <u-input v-model="newMemberNickName" placeholder="请输入昵称(选填)" border="surround" :disabled="nicknameReadonly"></u-input>
         </view>
         <view class="dialog-buttons">
           <u-button text="取消" @click="showAddMemberDialog = false"></u-button>
@@ -71,8 +74,9 @@
 </template>
 
 <script>
+import dayjs from 'dayjs'
 import { ensureLogin, ensureCollections, addDoc, queryDocs, updateDoc } from '@/utils/cloudbase'
-import { getUuid } from '@/utils'
+import { getUuid, isValidPhone } from '@/utils'
 import md5 from '@/utils/md5'
 import { createNotification } from '@/utils/notification'
 
@@ -83,10 +87,10 @@ export default {
       users: [],
       members: [],
       date: '',
-      minDate: '2026-01-01',
-      maxDate: '',
       showAddMemberDialog: false,
-      newMemberName: '',
+      newMemberPhone: '',
+      newMemberNickName: '',
+      nicknameReadonly: false,
       showCalendar: false,
       editingNameIndex: -1,
       saving: false,
@@ -98,9 +102,7 @@ export default {
       this.groupId = options.id;
     }
     
-    const today = new Date();
-    this.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    this.maxDate = this.date;
+    this.date = dayjs().format('YYYY-MM-DD');
     
     this.initData();
   },
@@ -115,36 +117,52 @@ export default {
     async loadMembers() {
       try {
         await ensureLogin()
-        const userInfo = uni.getStorageSync('userInfo') || {};
-        const currentUser = userInfo.nickName || userInfo.username || '雀圣';
+        const userInfo = uni.getStorageSync('userInfo') || {}
+        const currentPhone = userInfo.phone || ''
         
         const groups = await queryDocs('groups', { _id: this.groupId })
         
-        const memberSet = new Set();
-        memberSet.add(currentUser);
+        const memberPhones = new Set();
+        if (currentPhone) {
+          memberPhones.add(currentPhone);
+        }
         
         if (groups.length > 0) {
           this.groupDocId = groups[0]._id
           if (groups[0].members && groups[0].members.length > 0) {
-            groups[0].members.forEach(name => {
-              memberSet.add(name);
+            groups[0].members.forEach(m => {
+              memberPhones.add(m);
             });
           }
         }
         
-        this.members = Array.from(memberSet).map(name => ({ name }));
+        const phoneList = Array.from(memberPhones)
+        const memberDetails = []
+        for (const p of phoneList) {
+          if (isValidPhone(p)) {
+            const users = await queryDocs('users', { phone: p })
+            if (users.length > 0) {
+              memberDetails.push({ phone: p, nickName: users[0].nickName || users[0].nickname || '', name: users[0].nickName || users[0].nickname || p })
+            } else {
+              memberDetails.push({ phone: p, nickName: '', name: p })
+            }
+          } else {
+            memberDetails.push({ phone: '', nickName: '', name: p })
+          }
+        }
+        
+        this.members = memberDetails
       } catch (err) {
         console.error('加载成员失败:', err)
-        const userInfo = uni.getStorageSync('userInfo') || {};
-        const currentUser = userInfo.nickName || userInfo.username || '雀圣';
-        this.members = [{ name: currentUser }]
+        const userInfo = uni.getStorageSync('userInfo') || {}
+        const currentPhone = userInfo.phone || ''
+        this.members = currentPhone ? [{ phone: currentPhone, nickName: userInfo.nickName || '', name: userInfo.nickName || currentPhone }] : []
       }
     },
     
     async loadDataByDate() {
       try {
         await ensureLogin()
-        const userInfo = uni.getStorageSync('userInfo') || {}
         
         const scores = await queryDocs('scores', {
           groupId: this.groupId,
@@ -156,6 +174,7 @@ export default {
         } else {
           this.users = this.members.map(member => ({
             name: member.name,
+            phone: member.phone || '',
             score: 0
           }));
         }
@@ -163,6 +182,7 @@ export default {
         console.error('加载数据失败:', err)
         this.users = this.members.map(member => ({
           name: member.name,
+          phone: member.phone || '',
           score: 0
         }));
       }
@@ -170,7 +190,11 @@ export default {
     
     async removeMember(index) {
       const memberName = this.users[index]?.name;
-      if (!memberName) return;
+      const memberPhone = this.users[index]?.phone;
+      if (!memberName && !memberPhone) return;
+
+      const userInfo = uni.getStorageSync('userInfo') || {}
+      const creatorPhone = userInfo.phone || ''
 
       const res = await new Promise(resolve => {
         uni.showModal({
@@ -184,24 +208,59 @@ export default {
       if (!res.confirm) return;
 
       this.users.splice(index, 1);
-      this.members = this.members.filter(m => m.name !== memberName);
+      this.members = this.members.filter(m => {
+        if (memberPhone && m.phone) return m.phone !== memberPhone
+        return m.name !== memberName
+      });
 
       try {
         await ensureLogin();
 
+        if (!this.groupDocId) {
+          const groups = await queryDocs('groups', { _id: this.groupId })
+          if (groups.length > 0) {
+            this.groupDocId = groups[0]._id
+          }
+        }
+
         const allScores = await queryDocs('scores', { groupId: this.groupId });
 
         for (const scoreRecord of allScores) {
-          const updatedUsers = (scoreRecord.users || []).filter(u => u.name !== memberName);
-          if (updatedUsers.length !== (scoreRecord.users || []).length) {
+          const originalUsers = scoreRecord.users || []
+          const updatedUsers = originalUsers.filter(u => {
+            if (memberPhone && u.phone) return u.phone !== memberPhone
+            return u.name !== memberName
+          })
+          if (updatedUsers.length !== originalUsers.length) {
             await updateDoc('scores', scoreRecord._id, { users: updatedUsers });
           }
         }
 
         if (this.groupDocId) {
           await updateDoc('groups', this.groupDocId, {
-            members: this.members.map(m => m.name)
+            members: this.members.map(m => m.phone || m.name)
           });
+        }
+
+        try {
+          const group = await queryDocs('groups', { _id: this.groupId })
+          const groupName = group.length > 0 ? group[0].groupName : '群组'
+          const displayName = memberName || memberPhone
+          for (const m of this.members) {
+            const mPhone = m.phone || ''
+            if (mPhone && mPhone !== creatorPhone) {
+              await createNotification({
+                userId: mPhone,
+                type: 'member_leave',
+                title: '成员退出',
+                content: `${displayName}退出了"${groupName}"`,
+                groupId: this.groupId,
+                groupName
+              })
+            }
+          }
+        } catch (notifyErr) {
+          console.error('发送通知失败:', notifyErr)
         }
       } catch (err) {
         console.error('删除成员失败:', err);
@@ -209,18 +268,50 @@ export default {
       }
     },
 
+    openAddMemberDialog() {
+      this.newMemberPhone = ''
+      this.newMemberNickName = ''
+      this.nicknameReadonly = false
+      this.showAddMemberDialog = true
+    },
+
+    async onPhoneBlur() {
+      const phone = this.newMemberPhone.trim()
+      if (!phone || !isValidPhone(phone)) return
+
+      try {
+        const existingUsers = await queryDocs('users', { phone })
+        if (existingUsers.length > 0) {
+          this.newMemberNickName = existingUsers[0].nickName || existingUsers[0].nickname || ''
+          this.nicknameReadonly = true
+        } else {
+          this.nicknameReadonly = false
+        }
+      } catch (err) {
+        console.error('查询用户失败:', err)
+      }
+    },
+
     async addMember() {
-      if (!this.newMemberName.trim()) {
+      if (!this.newMemberPhone.trim()) {
         uni.showToast({
-          title: '请输入成员名称',
+          title: '请输入手机号',
           icon: 'none'
         });
         return;
       }
       
-      const memberName = this.newMemberName.trim();
+      if (!isValidPhone(this.newMemberPhone.trim())) {
+        uni.showToast({
+          title: '请输入正确的手机号',
+          icon: 'none'
+        });
+        return;
+      }
       
-      const exists = this.members.some(m => m.name === memberName);
+      const memberPhone = this.newMemberPhone.trim();
+      
+      const exists = this.members.some(m => m.phone === memberPhone);
       if (exists) {
         uni.showToast({
           title: '该成员已存在',
@@ -232,12 +323,14 @@ export default {
       try {
         await ensureLogin();
 
-        const existingUsers = await queryDocs('users', { username: memberName });
+        const existingUsers = await queryDocs('users', { phone: memberPhone });
         if (existingUsers.length === 0) {
+          const nickName = this.newMemberNickName.trim() || ''
           const defaultPassword = md5('888888');
           await addDoc('users', {
-            username: memberName,
-            nickName: memberName,
+            username: memberPhone,
+            phone: memberPhone,
+            nickName: nickName,
             avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg',
             password: defaultPassword
           });
@@ -246,19 +339,24 @@ export default {
         console.error('校验用户失败:', err);
       }
       
+      const displayName = this.newMemberNickName.trim() || memberPhone
+      
       this.members.push({
-        name: memberName
+        name: displayName,
+        phone: memberPhone,
+        nickName: this.newMemberNickName.trim()
       });
       
       this.users.push({
-        name: memberName,
+        name: displayName,
+        phone: memberPhone,
         score: 0
       });
 
       try {
         if (this.groupDocId) {
           await updateDoc('groups', this.groupDocId, {
-            members: this.members.map(m => m.name)
+            members: this.members.map(m => m.phone || m.name)
           })
         }
       } catch (err) {
@@ -266,28 +364,37 @@ export default {
       }
       
       this.showAddMemberDialog = false;
-      this.newMemberName = '';
+      this.newMemberPhone = '';
+      this.newMemberNickName = '';
 
-      // 为群组已有成员发送新成员通知
       try {
         const userInfo = uni.getStorageSync('userInfo') || {}
-        const creatorName = userInfo.nickName || userInfo.username
+        const creatorPhone = userInfo.phone || ''
+        const creatorName = userInfo.nickName || creatorPhone
         const group = await queryDocs('groups', { _id: this.groupId })
         const groupName = group.length > 0 ? group[0].groupName : '群组'
         for (const m of this.members) {
-          if (m.name !== creatorName && m.name !== memberName) {
-            const memberUsers = await queryDocs('users', { nickName: m.name })
-            if (memberUsers.length > 0) {
-              await createNotification({
-                userId: memberUsers[0].username,
-                type: 'new_member',
-                title: '新成员加入',
-                content: `${memberName}加入了"${groupName}"`,
-                groupId: this.groupId,
-                groupName
-              })
-            }
+          const mPhone = m.phone || ''
+          if (mPhone && mPhone !== creatorPhone && mPhone !== memberPhone) {
+            await createNotification({
+              userId: mPhone,
+              type: 'new_member',
+              title: '新成员加入',
+              content: `${displayName}加入了"${groupName}"`,
+              groupId: this.groupId,
+              groupName
+            })
           }
+        }
+        if (memberPhone && memberPhone !== creatorPhone) {
+          await createNotification({
+            userId: memberPhone,
+            type: 'new_member',
+            title: '加入群组',
+            content: `${creatorName}将你加入了"${groupName}"`,
+            groupId: this.groupId,
+            groupName
+          })
         }
       } catch (notifyErr) {
         console.error('发送通知失败:', notifyErr)
@@ -331,7 +438,6 @@ export default {
     async updateNameInCloud(oldName, newName) {
       try {
         await ensureLogin()
-        const userInfo = uni.getStorageSync('userInfo') || {}
         
         const allScores = await queryDocs('scores', {
           groupId: this.groupId
@@ -356,7 +462,7 @@ export default {
 
         if (this.groupDocId) {
           await updateDoc('groups', this.groupDocId, {
-            members: this.members.map(m => m.name)
+            members: this.members.map(m => m.phone || m.name)
           })
         }
         
@@ -396,7 +502,7 @@ export default {
             groupId: this.groupId,
             date: this.date,
             users: this.users,
-            creatorId: userInfo.username
+            creatorId: userInfo.phone || ''
           })
         }
         
@@ -405,24 +511,22 @@ export default {
           icon: 'success'
         });
 
-        // 为群组其他成员发送积分变动通知
         try {
-          const creatorName = userInfo.nickName || userInfo.username
+          const creatorPhone = userInfo.phone || ''
+          const creatorName = userInfo.nickName || creatorPhone
           const group = await queryDocs('groups', { _id: this.groupId })
           const groupName = group.length > 0 ? group[0].groupName : '群组'
           for (const user of this.users) {
-            if (user.name !== creatorName) {
-              const memberUsers = await queryDocs('users', { nickName: user.name })
-              if (memberUsers.length > 0) {
-                await createNotification({
-                  userId: memberUsers[0].username,
-                  type: 'score_change',
-                  title: '积分变动',
-                  content: `${creatorName}在"${groupName}"录入了新积分`,
-                  groupId: this.groupId,
-                  groupName
-                })
-              }
+            const userPhone = user.phone || ''
+            if (userPhone && userPhone !== creatorPhone) {
+              await createNotification({
+                userId: userPhone,
+                type: 'score_change',
+                title: '积分变动',
+                content: `${creatorName}在"${groupName}"录入了新积分`,
+                groupId: this.groupId,
+                groupName
+              })
             }
           }
         } catch (notifyErr) {
@@ -561,6 +665,7 @@ export default {
   border-radius: 16rpx;
   padding: 40rpx;
   width: 300px;
+  box-sizing: border-box;
 }
 
 .dialog-title {

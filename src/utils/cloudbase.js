@@ -1,3 +1,5 @@
+import dayjs from 'dayjs'
+
 const ENV_ID = 'cloud1-d5gw8fkm90605dfd6'
 
 wx.cloud.init({
@@ -46,7 +48,7 @@ async function ensureLogin() {
 }
 
 async function addDoc(collection, data) {
-  const now = new Date()
+  const now = dayjs().toDate()
   data.createTime = now
   data.updateTime = now
   const res = await getCollection(collection).add({ data })
@@ -54,7 +56,7 @@ async function addDoc(collection, data) {
 }
 
 async function updateDoc(collection, docId, data) {
-  data.updateTime = new Date()
+  data.updateTime = dayjs().toDate()
   return await getCollection(collection).doc(docId).update({ data })
 }
 

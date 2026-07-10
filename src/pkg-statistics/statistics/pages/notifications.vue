@@ -33,7 +33,51 @@
 </template>
 
 <script>
-import { ensureLogin, queryAllDocs, updateDoc, removeDoc } from '@/utils/cloudbase'
+import dayjs from 'dayjs'
+import { ensureLogin, queryAllDocs } from '@/utils/cloudbase'
+
+async function cloudUpdateDoc(collection, docId, data) {
+  try {
+    const { result } = await wx.cloud.callFunction({
+      name: 'markNotificationsRead',
+      data: { action: 'updateDoc', collection, docId, data }
+    })
+    if (result.success) return result
+    throw new Error(result.error || '更新失败')
+  } catch (err) {
+    console.error('cloudUpdateDoc 失败，回退客户端:', err)
+    const { updateDoc } = require('@/utils/cloudbase')
+    return await updateDoc(collection, docId, data)
+  }
+}
+
+async function cloudRemoveDoc(collection, docId) {
+  try {
+    const { result } = await wx.cloud.callFunction({
+      name: 'markNotificationsRead',
+      data: { action: 'removeDoc', collection, docId }
+    })
+    if (result.success) return result
+    throw new Error(result.error || '删除失败')
+  } catch (err) {
+    console.error('cloudRemoveDoc 失败，回退客户端:', err)
+    const { removeDoc } = require('@/utils/cloudbase')
+    return await removeDoc(collection, docId)
+  }
+}
+
+async function cloudMarkAllRead() {
+  try {
+    const { result } = await wx.cloud.callFunction({
+      name: 'markNotificationsRead',
+      data: { action: 'markRead' }
+    })
+    return result
+  } catch (err) {
+    console.error('cloudMarkAllRead 失败:', err)
+    return { success: false, error: err.message }
+  }
+}
 
 export default {
   data() {
@@ -49,12 +93,27 @@ export default {
       try {
         await ensureLogin()
         const userInfo = uni.getStorageSync('userInfo')
-        const list = await queryAllDocs('notifications', {
-          userId: userInfo.username
+        let list = []
+        if (userInfo.phone) {
+          list = await queryAllDocs('notifications', {
+            userId: userInfo.phone
+          })
+        }
+        if (list.length === 0 && userInfo.username) {
+          const legacyList = await queryAllDocs('notifications', {
+            userId: userInfo.username
+          })
+          list = list.concat(legacyList)
+        }
+        const seen = new Set()
+        list = list.filter(n => {
+          if (seen.has(n._id)) return false
+          seen.add(n._id)
+          return true
         })
         this.notifications = list.sort((a, b) => {
-          const ta = a.createTime ? new Date(a.createTime).getTime() : 0
-          const tb = b.createTime ? new Date(b.createTime).getTime() : 0
+          const ta = a.createTime ? dayjs(a.createTime).valueOf() : 0
+          const tb = b.createTime ? dayjs(b.createTime).valueOf() : 0
           return tb - ta
         })
       } catch (err) {
@@ -64,7 +123,7 @@ export default {
     async handleNotificationClick(item) {
       if (!item.isRead) {
         try {
-          await updateDoc('notifications', item._id, { isRead: true })
+          await cloudUpdateDoc('notifications', item._id, { isRead: true })
           item.isRead = true
         } catch (err) {
           console.error('标记已读失败:', err)
@@ -83,11 +142,17 @@ export default {
         return
       }
       try {
-        for (const item of unread) {
-          await updateDoc('notifications', item._id, { isRead: true })
+        const result = await cloudMarkAllRead()
+        if (result.success) {
+          this.notifications.forEach(n => { n.isRead = true })
+          uni.showToast({ title: '已全部标记为已读', icon: 'success' })
+        } else {
+          for (const item of unread) {
+            await cloudUpdateDoc('notifications', item._id, { isRead: true })
+          }
+          this.notifications.forEach(n => { n.isRead = true })
+          uni.showToast({ title: '已全部标记为已读', icon: 'success' })
         }
-        this.notifications.forEach(n => { n.isRead = true })
-        uni.showToast({ title: '已全部标记为已读', icon: 'success' })
       } catch (err) {
         console.error('批量标记失败:', err)
         uni.showToast({ title: '操作失败', icon: 'none' })
@@ -106,7 +171,7 @@ export default {
       if (!res.confirm) return
       try {
         for (const item of this.notifications) {
-          await removeDoc('notifications', item._id)
+          await cloudRemoveDoc('notifications', item._id)
         }
         this.notifications = []
         uni.showToast({ title: '已清空', icon: 'success' })
@@ -119,6 +184,7 @@ export default {
       const map = {
         score_change: '积分变动',
         new_member: '新成员',
+        member_leave: '成员退出',
         settlement: '周期结算',
         system: '系统通知'
       }
@@ -126,14 +192,13 @@ export default {
     },
     formatTime(time) {
       if (!time) return ''
-      const date = new Date(time)
-      const now = new Date()
-      const diff = now - date
+      const d = dayjs(time)
+      const diff = dayjs().diff(d)
       if (diff < 60000) return '刚刚'
       if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'
       if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'
       if (diff < 604800000) return Math.floor(diff / 86400000) + '天前'
-      return `${date.getMonth() + 1}/${date.getDate()}`
+      return d.format('M/D')
     }
   }
 }

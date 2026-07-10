@@ -12,12 +12,12 @@
       <view class="form-item">
         <text class="label">选择年份</text>
         <view class="picker-display" @click="showYearPicker = true">
-          <text class="picker-text">{{ selectedYear || '请选择年份' }}</text>
+          <text class="picker-text">{{ selectedYear === 'all' ? '全部' : (selectedYear ? selectedYear + '年' : '请选择年份') }}</text>
           <u-icon name="arrow-right" color="#9ca3af" size="16"></u-icon>
         </view>
       </view>
 
-      <view class="form-item">
+      <view class="form-item" v-if="selectedYear !== 'all'">
         <text class="label">选择月份</text>
         <view class="picker-display" @click="showMonthPicker = true">
           <text class="picker-text">{{ selectedMonthName || '请选择月份' }}</text>
@@ -44,7 +44,7 @@
 
     <view class="section" v-if="periodStats.length > 0">
       <view class="section-header">
-        <text class="section-title">当前时间段统计</text>
+        <text class="section-title">{{ selectedYear === 'all' ? '全部积分统计' : '当前时间段统计' }}</text>
       </view>
       <view class="stats-table">
         <view class="table-header">
@@ -55,35 +55,6 @@
           <text class="table-cell">{{ stat.name }}</text>
           <text class="table-cell" :class="stat.total >= 0 ? 'positive' : 'negative'">{{ stat.total >= 0 ? '+' : '' }}{{ stat.total }}</text>
         </view>
-      </view>
-    </view>
-
-    <view class="section">
-      <view class="section-header">
-        <text class="section-title">积分数据</text>
-      </view>
-      <view class="chart-container" v-show="chartData.series.length > 0">
-        <qiun-data-charts type="column" :canvas2d="true" :chartData="chartData" :opts="chartOpts" :key="chartKey"></qiun-data-charts>
-      </view>
-      <view class="empty-chart" v-show="chartData.series.length === 0">
-        <text class="empty-text">暂无数据</text>
-      </view>
-    </view>
-
-    <!-- 积分趋势 -->
-    <view class="section" v-if="currentScores.length > 0">
-      <view class="section-header-row">
-        <text class="section-title">积分趋势</text>
-        <view class="trend-tabs">
-          <text :class="trendMode === 'personal' ? 'tab-active' : 'tab'" @click="switchTrendMode('personal')">个人</text>
-          <text :class="trendMode === 'group' ? 'tab-active' : 'tab'" @click="switchTrendMode('group')">全组</text>
-        </view>
-      </view>
-      <view class="chart-container" v-show="trendChartData.series.length > 0">
-        <qiun-data-charts type="line" :canvas2d="true" :chartData="trendChartData" :opts="trendChartOpts" :key="trendChartKey"></qiun-data-charts>
-      </view>
-      <view class="empty-chart" v-show="trendChartData.series.length === 0">
-        <text class="empty-text">暂无趋势数据</text>
       </view>
     </view>
 
@@ -119,17 +90,17 @@
       </view>
     </view>
 
-    <!-- 分享按钮 -->
-    <view class="share-section" v-if="periodStats.length > 0">
+    <!-- 分享按钮（已隐藏） -->
+    <view class="share-section" v-if="false">
       <u-button text="分享统计" type="primary" color="#22C55E" @click="handleShare" icon="share-square"></u-button>
     </view>
 
-    <!-- 分享 Canvas 和预览弹窗 -->
-    <view class="share-canvas-wrapper" v-if="showShareCanvas">
-      <canvas id="shareCanvas" type="2d" :style="{ width: '750rpx', height: '1000rpx' }"></canvas>
+    <!-- 分享 Canvas 和预览弹窗（已隐藏） -->
+    <view class="share-canvas-wrapper" v-if="false">
+      <canvas id="shareCanvas" type="2d" :style="{ width: '750rpx', height: '1200rpx' }"></canvas>
     </view>
 
-    <u-popup :show="showSharePreview" mode="center" :round="16" @close="showSharePreview = false" :safeAreaInsetBottom="false">
+    <u-popup :show="false" mode="center" :round="16" @close="showSharePreview = false" :safeAreaInsetBottom="false">
       <view class="share-preview">
         <image :src="shareImagePath" mode="widthFix" class="share-image"></image>
         <view class="share-actions">
@@ -143,7 +114,7 @@
 
 <script>
 import qiunDataCharts from '../qiun-data-charts/components/qiun-data-charts/qiun-data-charts.vue';
-import { ensureLogin, queryDocs } from '@/utils/cloudbase'
+import { ensureLogin, queryDocs, queryAllDocs, db } from '@/utils/cloudbase'
 import { drawShareCard, saveToAlbum } from '@/utils/shareCard'
 
 export default {
@@ -177,80 +148,15 @@ export default {
         { value: '11', label: '11月' },
         { value: '12', label: '12月' }
       ],
-      selectedYear: '',
+      selectedYear: 'all',
       selectedMonth: '',
-      selectedMonthName: '',
+      selectedMonthName: '全部',
       showMonthPicker: false,
       monthColumns: [[]],
 
       yearStats: [],
       periodStats: [],
       currentScores: [],
-      chartKey: 0,
-      chartData: {
-        categories: [],
-        series: []
-      },
-      chartOpts: {
-        padding: [15, 15, 0, 15],
-        enableDataLabel: false,
-        dataLabel: 'value',
-        xAxis: {
-          disableGrid: true,
-          labelCount: 5,
-          rotateLabel: false,
-          itemCount: 5,
-          scrollShow: true,
-          label: {
-            show: true
-          }
-        },
-        yAxis: {
-          gridType: 'dash',
-          dashLength: 4,
-          splitNumber: 5,
-          data: {
-            min: -500,
-            max: 500,
-          },
-          label: {
-            show: true
-          }
-        },
-        extra: {
-          column: {
-            type: 'group',
-            width: 30,
-            activeBgColor: '#000000',
-            activeBgOpacity: 0.08,
-            linearType: 'none'
-          }
-        },
-        legend: {
-          show: true,
-          position: 'bottom',
-          float: 'center'
-        }
-      },
-
-      // 趋势图
-      trendMode: 'personal',
-      trendChartData: { categories: [], series: [] },
-      trendChartKey: 0,
-      trendChartOpts: {
-        padding: [15, 15, 0, 15],
-        enableDataLabel: false,
-        xAxis: { disableGrid: true, labelCount: 5, rotateLabel: true },
-        yAxis: { gridType: 'dash', dashLength: 4, splitNumber: 5 },
-        extra: {
-          line: {
-            type: 'curve',
-            width: 2,
-            activeType: 'hollow'
-          }
-        },
-        legend: { show: true, position: 'bottom', float: 'center' }
-      },
 
       // 个人分析
       personalStats: null,
@@ -279,25 +185,41 @@ export default {
   onLoad() {
     this.initData();
   },
-  onShareAppMessage() {
-    return {
-      title: '雀圣积分统计',
-      path: '/pages/index/index'
-    }
-  },
+  // onShareAppMessage() {
+  //   return {
+  //     title: '雀圣积分统计',
+  //     path: '/pages/index/index'
+  //   }
+  // },
   methods: {
     async initData() {
       this.loadMonthColumns();
       await this.loadGroups();
-      this.loadYears();
+      await this.loadYears();
+      this.loadStatistics();
     },
 
     async loadGroups() {
       try {
         await ensureLogin()
         const userInfo = uni.getStorageSync('userInfo')
-        const cachedData = await queryDocs('groups', {
-          creatorId: userInfo.username
+        const userPhone = userInfo.phone || ''
+        const userName = userInfo.nickName || userPhone
+        
+        let cachedData = []
+        if (userPhone) {
+          cachedData = await queryDocs('groups', { members: userPhone })
+        }
+        if (cachedData.length === 0 && userName) {
+          const legacyData = await queryDocs('groups', { members: userName })
+          cachedData = cachedData.concat(legacyData)
+        }
+        const seen = new Set()
+        cachedData = cachedData.filter(g => {
+          const key = g._id || g.id
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
         })
         this.groupList = cachedData.map(item => ({
           label: item.groupName,
@@ -312,7 +234,6 @@ export default {
         if (this.groupList.length > 0) {
           this.selectedGroup = this.groupList[0].value;
           this.selectedGroupName = this.groupList[0].label;
-          this.loadStatistics();
         }
       } catch (err) {
         console.error('加载群组失败:', err)
@@ -321,10 +242,11 @@ export default {
 
     async loadYears() {
       try {
-        await ensureLogin()
-        const userInfo = uni.getStorageSync('userInfo')
-        const scores = await queryDocs('scores', {
-          creatorId: userInfo.username
+        const groupIds = this.groupList.map(g => g.value)
+        if (groupIds.length === 0) return
+        const _ = db.command
+        const scores = await queryAllDocs('scores', {
+          groupId: _.in(groupIds)
         })
         const years = new Set();
 
@@ -335,18 +257,20 @@ export default {
           }
         });
 
-        this.yearList = Array.from(years).map(year => ({
-          value: year,
-          label: year + '年'
-        }));
+        this.yearList = [
+          { value: 'all', label: '全部' },
+          ...Array.from(years).sort().map(year => ({
+            value: year,
+            label: year + '年'
+          }))
+        ];
 
         this.yearColumns = [this.yearList.map(item => ({
           text: item.label,
           value: item.value
         }))];
 
-        const currentYear = new Date().getFullYear().toString();
-        this.selectedYear = currentYear;
+        this.selectedYear = 'all';
         this.selectedMonth = "";
       } catch (err) {
         console.error('加载年份失败:', err)
@@ -360,15 +284,20 @@ export default {
       }))];
     },
 
-    onGroupConfirm(e) {
+    async onGroupConfirm(e) {
       this.selectedGroupName = e.value[0].text;
       this.selectedGroup = e.value[0].value;
+      await this.loadYears();
       this.loadStatistics();
       this.showGroupPicker = false;
     },
 
     onYearConfirm(e) {
       this.selectedYear = e.value[0].value;
+      if (this.selectedYear === 'all') {
+        this.selectedMonth = '';
+        this.selectedMonthName = '全部';
+      }
       this.loadStatistics();
       this.showYearPicker = false;
     },
@@ -384,29 +313,56 @@ export default {
       if (!this.selectedGroup) return;
 
       try {
-        await ensureLogin()
-        const userInfo = uni.getStorageSync('userInfo')
         const scores = await queryDocs('scores', {
-          groupId: this.selectedGroup,
-          creatorId: userInfo.username
+          groupId: this.selectedGroup
         })
 
-        if (!scores || scores.length === 0) return;
+        if (!scores || scores.length === 0) {
+          this.yearStats = [];
+          this.periodStats = [];
+          this.personalStats = null;
+          this.radarChartData = { categories: [], series: [] };
+          this.radarChartKey++;
+          return;
+        };
 
         this.currentScores = scores;
 
-        if(this.selectedYear && !this.selectedMonth) {
+        let filteredScores = scores;
+        if (this.selectedYear === 'all') {
+          this.calculateAllStats(scores);
+        } else if (this.selectedYear && !this.selectedMonth) {
+          filteredScores = scores.filter(item => item.date && item.date.startsWith(this.selectedYear));
           this.calculateYearStats(scores);
-        }
-        if(this.selectedYear && this.selectedMonth) {
+        } else if (this.selectedYear && this.selectedMonth) {
+          filteredScores = scores.filter(item => item.date && item.date.startsWith(this.selectedYear + '-' + this.selectedMonth));
           this.calculateMonthStats(scores);
         }
 
-        this.calculateTrendData(scores);
-        this.calculatePersonalAnalysis(scores);
+        this.calculatePersonalAnalysis(filteredScores);
       } catch (err) {
         console.error('加载统计失败:', err)
       }
+    },
+
+    calculateAllStats(data) {
+      const userStats = {};
+      data.forEach(item => {
+        if (item.users) {
+          item.users.forEach(user => {
+            if (!userStats[user.name]) {
+              userStats[user.name] = 0;
+            }
+            userStats[user.name] += Number(user.score) || 0;
+          });
+        }
+      });
+
+      this.yearStats = [];
+      this.periodStats = Object.keys(userStats).map(name => ({
+        name,
+        total: userStats[name]
+      }));
     },
 
     calculateYearStats(data) {
@@ -434,8 +390,6 @@ export default {
         name,
         total: userStats[name]
       }));
-
-      this.prepareYearChartData(yearData);
     },
 
     calculateMonthStats(data) {
@@ -459,140 +413,11 @@ export default {
         name,
         total: userStats[name]
       }));
-
-      this.prepareMonthChartData(monthData);
-    },
-
-    prepareYearChartData(data) {
-      if (!data || data.length === 0) {
-        this.chartData = { categories: [], series: [] };
-        this.yearStats = [];
-        this.periodStats = [];
-        this.chartKey++;
-        return;
-      }
-
-      const dateMap = {};
-      data.forEach(item => {
-        if (item.date && item.users) {
-          dateMap[item.date] = item.users;
-        }
-      });
-
-      const dates = Object.keys(dateMap).sort();
-      const users = new Set();
-      dates.forEach(date => {
-        dateMap[date].forEach(user => {
-          users.add(user.name);
-        });
-      });
-
-      const series = [];
-      const userList = Array.from(users);
-
-      userList.forEach(user => {
-        const dataPoints = dates.map(date => {
-          const userData = dateMap[date].find(u => u.name === user);
-          return userData ? Number(userData.score) || 0 : 0;
-        });
-        series.push({ name: user, data: dataPoints });
-      });
-
-      this.chartData = { categories: dates, series };
-      this.chartKey++;
-    },
-
-    prepareMonthChartData(data) {
-      if (!data || data.length === 0) {
-        this.chartData = { categories: [], series: [] };
-        this.periodStats = [];
-        this.chartKey++;
-        return;
-      }
-
-      const dateMap = {};
-      data.forEach(item => {
-        if (item.date && item.users) {
-          dateMap[item.date] = item.users;
-        }
-      });
-
-      const dates = Object.keys(dateMap).sort();
-      const users = new Set();
-      dates.forEach(date => {
-        dateMap[date].forEach(user => {
-          users.add(user.name);
-        });
-      });
-
-      const series = [];
-      const userList = Array.from(users);
-
-      userList.forEach(user => {
-        const dataPoints = dates.map(date => {
-          const userData = dateMap[date].find(u => u.name === user);
-          return userData ? Number(userData.score) || 0 : 0;
-        });
-        series.push({ name: user, data: dataPoints });
-      });
-
-      this.chartData = { categories: dates, series };
-      this.chartKey++;
-    },
-
-    switchTrendMode(mode) {
-      this.trendMode = mode;
-      this.calculateTrendData(this.currentScores);
-    },
-
-    calculateTrendData(scores) {
-      const sortedScores = (scores || [])
-        .filter(s => s.date && s.users)
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      if (sortedScores.length === 0) {
-        this.trendChartData = { categories: [], series: [] };
-        this.trendChartKey++;
-        return;
-      }
-
-      const dates = [...new Set(sortedScores.map(s => s.date))].sort();
-      const userInfo = uni.getStorageSync('userInfo');
-      const userName = userInfo.nickName || userInfo.username;
-
-      if (this.trendMode === 'personal') {
-        let cumulative = 0;
-        const dataPoints = dates.map(date => {
-          const record = sortedScores.find(s => s.date === date);
-          const userEntry = (record?.users || []).find(u => u.name === userName);
-          cumulative += Number(userEntry?.score) || 0;
-          return cumulative;
-        });
-        this.trendChartData = {
-          categories: dates,
-          series: [{ name: '累计积分', data: dataPoints }]
-        };
-      } else {
-        const users = new Set();
-        sortedScores.forEach(s => (s.users || []).forEach(u => users.add(u.name)));
-        const series = Array.from(users).map(name => {
-          let cum = 0;
-          const dataPoints = dates.map(date => {
-            const record = sortedScores.find(s => s.date === date);
-            const userEntry = (record?.users || []).find(u => u.name === name);
-            cum += Number(userEntry?.score) || 0;
-            return cum;
-          });
-          return { name, data: dataPoints };
-        });
-        this.trendChartData = { categories: dates, series };
-      }
-      this.trendChartKey++;
     },
 
     calculatePersonalAnalysis(scores) {
       const userInfo = uni.getStorageSync('userInfo');
-      const userName = userInfo.nickName || userInfo.username;
+      const userName = userInfo.nickName || userInfo.phone || '';
 
       const myRecords = [];
       (scores || []).forEach(record => {
@@ -659,15 +484,18 @@ export default {
       await this.$nextTick();
       setTimeout(async () => {
         try {
-          const dataList = this.periodStats.map((s, i) => ({
-            name: s.name,
-            score: s.total,
-            rank: i + 1
-          }));
+          const dataList = this.periodStats
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 5)
+            .map((s, i) => ({
+              name: s.name,
+              score: s.total,
+              rank: i + 1
+            }));
           const tempFilePath = await drawShareCard({
             canvasId: 'shareCanvas',
             title: this.selectedGroupName + ' - 积分统计',
-            subtitle: this.selectedYear + '年' + (this.selectedMonthName || ''),
+            subtitle: this.selectedYear === 'all' ? '全部' : this.selectedYear + '年' + (this.selectedMonthName || ''),
             dataList
           });
           this.shareImagePath = tempFilePath;
@@ -712,13 +540,6 @@ export default {
 }
 
 .section-header {
-  margin-bottom: 16px;
-}
-
-.section-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 16px;
 }
 
@@ -822,44 +643,9 @@ export default {
   font-weight: bold;
 }
 
-.chart-container {
-  height: 400px;
-}
-
-.empty-chart {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 200px;
-}
-
 .empty-text {
   color: #9ca3af;
   font-size: 14px;
-}
-
-/* 趋势 Tab */
-.trend-tabs {
-  display: flex;
-  gap: 4px;
-  background-color: #f3f4f6;
-  border-radius: 8px;
-  padding: 2px;
-}
-
-.tab {
-  font-size: 13px;
-  color: #6b7280;
-  padding: 4px 12px;
-  border-radius: 6px;
-}
-
-.tab-active {
-  font-size: 13px;
-  color: #ffffff;
-  background-color: #22C55E;
-  padding: 4px 12px;
-  border-radius: 6px;
 }
 
 /* 个人分析 */

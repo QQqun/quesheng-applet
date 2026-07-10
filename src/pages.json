@@ -29,7 +29,7 @@
 		{
 			"root": "pkg-login",
 			"pages": [{
-				"path": "index",
+				"path": "login",
 				"style": {
 					"navigationBarTitleText": "登录",
 					"disableScroll": true
@@ -37,17 +37,26 @@
 			}]
 		},
 		{
-				"root": "pkg-profile",
-				"pages": [{
-					"path": "index",
-					"style": {
-						"navigationBarTitleText": "编辑资料"
-					}
-				}]
-			},
-			{
-					"root": "pkg-statistics",
-				"pages": [{
+			"root": "pkg-profile",
+			"pages": [{
+				"path": "index",
+				"style": {
+					"navigationBarTitleText": "编辑资料"
+				}
+			}]
+		},
+		{
+			"root": "pkg-password",
+			"pages": [{
+				"path": "index",
+				"style": {
+					"navigationBarTitleText": "修改密码"
+				}
+			}]
+		},
+		{
+			"root": "pkg-statistics",
+			"pages": [{
 					"path": "statistics/pages/index",
 					"style": {
 						"navigationBarTitleText": "积分统计"
@@ -64,8 +73,9 @@
 					"style": {
 						"navigationBarTitleText": "消息通知"
 					}
-				}]
-			}
+				}
+			]
+		}
 	],
 	"globalStyle": {
 		"pageOrientation": "portrait",
