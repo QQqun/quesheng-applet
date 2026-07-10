@@ -90,32 +90,12 @@
       </view>
     </view>
 
-    <!-- 分享按钮（已隐藏） -->
-    <view class="share-section" v-if="false">
-      <u-button text="分享统计" type="primary" color="#22C55E" @click="handleShare" icon="share-square"></u-button>
-    </view>
-
-    <!-- 分享 Canvas 和预览弹窗（已隐藏） -->
-    <view class="share-canvas-wrapper" v-if="false">
-      <canvas id="shareCanvas" type="2d" :style="{ width: '750rpx', height: '1200rpx' }"></canvas>
-    </view>
-
-    <u-popup :show="false" mode="center" :round="16" @close="showSharePreview = false" :safeAreaInsetBottom="false">
-      <view class="share-preview">
-        <image :src="shareImagePath" mode="widthFix" class="share-image"></image>
-        <view class="share-actions">
-          <u-button text="保存到相册" type="primary" color="#22C55E" @click="handleSaveImage"></u-button>
-          <u-button text="关闭" @click="showSharePreview = false"></u-button>
-        </view>
-      </view>
-    </u-popup>
   </view>
 </template>
 
 <script>
 import qiunDataCharts from '../qiun-data-charts/components/qiun-data-charts/qiun-data-charts.vue';
 import { ensureLogin, queryDocs, queryAllDocs, db } from '@/utils/cloudbase'
-import { drawShareCard, saveToAlbum } from '@/utils/shareCard'
 
 export default {
   components: {
@@ -174,12 +154,7 @@ export default {
           }
         },
         legend: { show: false }
-      },
-
-      // 分享
-      showShareCanvas: false,
-      showSharePreview: false,
-      shareImagePath: ''
+      }
     }
   },
   onLoad() {
@@ -477,46 +452,6 @@ export default {
         }]
       };
       this.radarChartKey++;
-    },
-
-    async handleShare() {
-      this.showShareCanvas = true;
-      await this.$nextTick();
-      setTimeout(async () => {
-        try {
-          const dataList = this.periodStats
-            .sort((a, b) => b.total - a.total)
-            .slice(0, 5)
-            .map((s, i) => ({
-              name: s.name,
-              score: s.total,
-              rank: i + 1
-            }));
-          const tempFilePath = await drawShareCard({
-            canvasId: 'shareCanvas',
-            title: this.selectedGroupName + ' - 积分统计',
-            subtitle: this.selectedYear === 'all' ? '全部' : this.selectedYear + '年' + (this.selectedMonthName || ''),
-            dataList
-          });
-          this.shareImagePath = tempFilePath;
-          this.showSharePreview = true;
-        } catch (err) {
-          console.error('生成分享卡失败:', err);
-          uni.showToast({ title: '生成失败', icon: 'none' });
-        }
-      }, 500);
-    },
-
-    async handleSaveImage() {
-      try {
-        await saveToAlbum(this.shareImagePath);
-        uni.showToast({ title: '已保存到相册', icon: 'success' });
-        this.showSharePreview = false;
-        this.showShareCanvas = false;
-      } catch (err) {
-        console.error('保存失败:', err);
-        uni.showToast({ title: '保存失败，请授权相册权限', icon: 'none' });
-      }
     }
   }
 }
@@ -687,37 +622,4 @@ export default {
   color: #9ca3af;
 }
 
-/* 分享 */
-.share-section {
-  margin: 20px 16px;
-}
-
-.share-canvas-wrapper {
-  position: fixed;
-  left: -9999px;
-  top: -9999px;
-}
-
-.share-preview {
-  background-color: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  width: 340px;
-  box-sizing: border-box;
-}
-
-.share-image {
-  width: 100%;
-  border-radius: 12rpx;
-  margin-bottom: 20rpx;
-}
-
-.share-actions {
-  display: flex;
-  gap: 16rpx;
-}
-
-.share-actions u-button {
-  flex: 1;
-}
 </style>

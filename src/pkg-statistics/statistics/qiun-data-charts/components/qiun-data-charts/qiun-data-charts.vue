@@ -156,11 +156,9 @@
 </template>
 
 <script>
-import uCharts from '../../js_sdk/u-charts/u-charts.js';
+import uCharts from '../../js_sdk/u-charts/u-charts.min.js';
 import cfu from '../../js_sdk/u-charts/config-ucharts.js';
-// #ifdef APP-VUE || H5
-import cfe from '../../js_sdk/u-charts/config-echarts.js';
-// #endif
+// echarts support removed for bundle size optimization
 
 function deepCloneAssign(origin = {}, ...args) {
   for (let i in args) {
@@ -1214,10 +1212,8 @@ export default {
 
 <!-- #ifdef APP-VUE || H5 -->
 <script module="rdcharts" lang="renderjs">
-import uChartsRD from '../../js_sdk/u-charts/u-charts.js';
+import uChartsRD from '../../js_sdk/u-charts/u-charts.min.js';
 import cfu from '../../js_sdk/u-charts/config-ucharts.js';
-import cfe from '../../js_sdk/u-charts/config-echarts.js';
-
 var that = {};
 var rootdom = null;
 
