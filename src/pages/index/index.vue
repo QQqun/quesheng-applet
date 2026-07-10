@@ -201,6 +201,20 @@ export default {
 
   async onShow() {
     this.getUserInfo()
+    const token = uni.getStorageSync('token')
+    if (!token) {
+      this.groups = []
+      this.groupsWithStats = []
+      this.todayScore = 0
+      this.weekScore = 0
+      this.monthScore = 0
+      this.totalScore = 0
+      this.activeGroupCount = 0
+      this.activeMemberCount = 0
+      this.unreadCount = 0
+      this.updateGreeting()
+      return
+    }
     await this.getRecentGroups()
     this.loadStatistics()
     this.updateGreeting()
@@ -213,12 +227,13 @@ export default {
   },
   methods: {
     getUserInfo() {
+      const token = uni.getStorageSync('token')
       const userInfo = uni.getStorageSync('userInfo')
-      if (userInfo) {
+      if (token && userInfo && userInfo.phone) {
         this.userInfo = userInfo
       } else {
         this.userInfo = {
-          nickName: '未设置昵称',
+          nickName: '暂未登录',
           avatarUrl: 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
         }
       }

@@ -96,16 +96,13 @@
         "appid": "wx21137dd4de382325",
         "cloudfunctionRoot": "cloudfunctions/",
         "setting": {
-            "urlCheck": false
+            "urlCheck": false,
+            "minified": true,
+            "postcss": true
         },
         "usingComponents": true,
-        "permission": {
-            "scope.userLocation": {
-                "desc": "演示定位能力"
-            }
-        },
         "uniStatistics": {
-            "enable": true
+            "enable": false
         }
     },
     "mp-alipay": {
@@ -138,7 +135,6 @@
         }
     },
     "h5": {
-        "template": "template.h5.html",
         "router": {
             "mode": "history",
             "base": ""
@@ -185,6 +181,6 @@
     },
     "uniStatistics": {
         "version": "2",
-        "enable": true
+        "enable": false
     }
 }

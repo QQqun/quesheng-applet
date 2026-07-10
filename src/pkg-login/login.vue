@@ -39,10 +39,6 @@
       <button class="auth-btn" @click="handleLogin" :loading="loading">
         登录
       </button>
-      
-      <view class="footer-text">
-        登录即表示同意服务协议和隐私政策
-      </view>
     </view>
   </view>
 </template>
@@ -77,10 +73,11 @@ export default {
     }
   },
   onLoad() {
+    const token = uni.getStorageSync('token')
     const userInfo = uni.getStorageSync('userInfo')
-    if (userInfo && userInfo.phone) {
+    if (token && userInfo && userInfo.phone) {
       this.phone = userInfo.phone
-    } else if (userInfo && userInfo.username) {
+    } else if (token && userInfo && userInfo.username) {
       this.phone = userInfo.username
     }
   },

@@ -2,9 +2,13 @@
   <view class="my-container">
     <view class="user-info">
       <image :src="userInfo.avatarUrl || 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'" class="avatar" @click="goToProfile"></image>
-      <view class="user-detail">
+      <view class="user-detail" v-if="isLoggedIn">
         <view class="nickname">{{ userInfo.nickName || userInfo.phone || '未设置昵称' }}</view>
         <view class="phone">{{ userInfo.phone || '' }}</view>
+      </view>
+      <view class="user-detail" v-else>
+        <view class="nickname">暂未登录</view>
+        <view class="go-login" @click="goToLogin">去登录 →</view>
       </view>
     </view>
 
@@ -37,7 +41,8 @@
     </view>
 
     <view class="logout-btn-container">
-      <u-button type="error" size="large" @click="logout">退出登录</u-button>
+      <u-button v-if="isLoggedIn" type="error" size="large" @click="logout">退出登录</u-button>
+      <u-button v-else type="primary" size="large" @click="goToLogin">去登录</u-button>
     </view>
   </view>
 </template>
@@ -50,7 +55,8 @@ const DEFAULT_AVATAR = 'https://modao.cc/agent-py/media/generated_images/2026-01
 export default {
   data() {
     return {
-      userInfo: {}
+      userInfo: {},
+      isLoggedIn: false
     }
   },
   onLoad() {
@@ -61,10 +67,19 @@ export default {
   },
   methods: {
     async getUserInfo() {
+      const token = uni.getStorageSync('token')
       const localUserInfo = uni.getStorageSync('userInfo')
-      if (localUserInfo) {
-        this.userInfo = localUserInfo
+      if (!token || !localUserInfo || !localUserInfo.phone) {
+        this.isLoggedIn = false
+        this.userInfo = {
+          nickName: '暂未登录',
+          phone: '',
+          avatarUrl: DEFAULT_AVATAR
+        }
+        return
       }
+      this.isLoggedIn = true
+      this.userInfo = localUserInfo
 
       try {
         await ensureLogin()
@@ -107,6 +122,11 @@ export default {
     goToChangePassword() {
       uni.navigateTo({
         url: '/pkg-password/index'
+      })
+    },
+    goToLogin() {
+      uni.redirectTo({
+        url: '/pkg-login/login'
       })
     },
     logout() {
@@ -172,6 +192,12 @@ export default {
 .phone {
   font-size: 28rpx;
   color: #666;
+}
+
+.go-login {
+  font-size: 28rpx;
+  color: #15803D;
+  margin-top: 10rpx;
 }
 
 .function-list {

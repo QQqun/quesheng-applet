@@ -23,7 +23,7 @@
 
 <script>
 import dayjs from 'dayjs'
-import { ensureLogin, queryDocs, updateDoc } from '@/utils/cloudbase'
+import { ensureLogin, queryDocs, queryAllDocs, updateDoc } from '@/utils/cloudbase'
 
 const DEFAULT_AVATAR = 'https://modao.cc/agent-py/media/generated_images/2026-01-24/816582f996494d8f888f059b36223bd4.jpg'
 
@@ -49,9 +49,9 @@ export default {
 
       try {
         await ensureLogin()
-        let users = await queryDocs('users', { phone: userInfo.phone })
+        let users = await this.cloudQuery('users', { phone: userInfo.phone })
         if (users.length === 0 && userInfo.username) {
-          users = await queryDocs('users', { username: userInfo.username })
+          users = await this.cloudQuery('users', { username: userInfo.username })
         }
         if (users.length > 0) {
           this.docId = users[0]._id
@@ -64,6 +64,19 @@ export default {
       }
     },
 
+    async cloudQuery(collection, query) {
+      try {
+        const { result } = await wx.cloud.callFunction({
+          name: 'queryUser',
+          data: { collection, query }
+        })
+        return result.data || []
+      } catch (err) {
+        console.error('云函数查询失败，降级使用客户端查询:', err)
+        return await queryDocs(collection, query)
+      }
+    },
+
     async saveProfile() {
       if (!this.docId) {
         uni.showToast({ title: '用户信息异常', icon: 'none' })
@@ -72,16 +85,22 @@ export default {
 
       this.savingProfile = true
       try {
-        const updateData = { nickName: this.nickname.trim() }
+        const newNickName = this.nickname.trim()
+        const updateData = { nickName: newNickName }
 
-        await updateDoc('users', this.docId, updateData)
+        await this.cloudUpdateDoc('users', this.docId, updateData)
 
         const userInfo = uni.getStorageSync('userInfo') || {}
-        userInfo.nickName = this.nickname.trim()
+        const oldNickName = userInfo.nickName || ''
+        userInfo.nickName = newNickName
         if (this.phone) {
           userInfo.phone = this.phone
         }
         uni.setStorageSync('userInfo', userInfo)
+
+        if (oldNickName !== newNickName && this.phone) {
+          await this.syncNickNameToScores(this.phone, newNickName)
+        }
 
         uni.showToast({ title: '保存成功', icon: 'success' })
       } catch (err) {
@@ -90,6 +109,53 @@ export default {
       } finally {
         this.savingProfile = false
       }
+    },
+
+    async cloudUpdateDoc(collection, docId, data) {
+      try {
+        const { result } = await wx.cloud.callFunction({
+          name: 'updateUser',
+          data: { collection, docId, data }
+        })
+        if (result && result.success) return
+      } catch (err) {
+        console.error('云函数更新失败，降级使用客户端更新:', err)
+      }
+      await updateDoc(collection, docId, data)
+    },
+
+    async syncNickNameToScores(phone, newName) {
+      try {
+        const allScores = await this.cloudQueryAll('scores', { 'users.phone': phone })
+        for (const scoreRecord of allScores) {
+          let needUpdate = false
+          const updatedUsers = (scoreRecord.users || []).map(user => {
+            if (user.phone === phone && user.name !== newName) {
+              needUpdate = true
+              return { ...user, name: newName }
+            }
+            return user
+          })
+          if (needUpdate) {
+            await this.cloudUpdateDoc('scores', scoreRecord._id, { users: updatedUsers })
+          }
+        }
+      } catch (err) {
+        console.error('同步积分表昵称失败:', err)
+      }
+    },
+
+    async cloudQueryAll(collection, query) {
+      try {
+        const { result } = await wx.cloud.callFunction({
+          name: 'queryUser',
+          data: { collection, query, all: true }
+        })
+        if (result && result.data && result.data.length > 0) return result.data
+      } catch (err) {
+        console.error('云函数查询失败，降级使用客户端查询:', err)
+      }
+      return await queryAllDocs(collection, query)
     },
 
     chooseAvatar() {
@@ -113,7 +179,7 @@ export default {
             this.avatarUrl = uploadRes.fileID
 
             if (this.docId) {
-              await updateDoc('users', this.docId, { avatarUrl: this.avatarUrl })
+              await this.cloudUpdateDoc('users', this.docId, { avatarUrl: this.avatarUrl })
             }
 
             const userInfo = uni.getStorageSync('userInfo') || {}
