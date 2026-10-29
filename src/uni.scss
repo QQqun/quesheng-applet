@@ -77,3 +77,41 @@ $uni-font-size-paragraph:15px;
 
 /* uView UI */
 @import 'uview-ui/theme.scss';
+
+/* ============ uView 主题色覆写（翡翠金·暗夜竞技） ============ */
+/* 必须在 theme.scss 之后声明，变量同名后声明生效 */
+$u-main-color: #F4FBF7;
+$u-content-color: #DCEBE3;
+$u-tips-color: #8AA79B;
+$u-light-color: #B8CCC2;
+$u-border-color: rgba(255, 255, 255, 0.14);
+$u-bg-color: #0A1F17;
+$u-disabled-color: #5E7A6C;
+
+$u-primary: #34D399;
+$u-primary-dark: #16A34A;
+$u-primary-disabled: #1F7A5E;
+$u-primary-light: rgba(52, 211, 153, 0.14);
+
+$u-warning: #E9C46A;
+$u-warning-dark: #D9AE49;
+$u-warning-disabled: #8A7440;
+$u-warning-light: rgba(233, 196, 106, 0.14);
+
+$u-success: #34D399;
+$u-success-dark: #16A34A;
+$u-success-disabled: #1F7A5E;
+$u-success-light: rgba(52, 211, 153, 0.14);
+
+$u-error: #F87171;
+$u-error-dark: #EF4444;
+$u-error-disabled: #8C4141;
+$u-error-light: rgba(248, 113, 113, 0.14);
+
+$u-info: #8AA79B;
+$u-info-dark: #6E8C7F;
+$u-info-disabled: #4C6B5C;
+$u-info-light: rgba(138, 167, 155, 0.14);
+
+/* uView 弹窗 / 选择器 / 日历容器底色（组件内为 !default，此处先声明即可覆盖） */
+$u-popup-content-background-color: #0A1F17;

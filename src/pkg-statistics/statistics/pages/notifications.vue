@@ -1,20 +1,20 @@
 <template>
-  <view class="page-container">
+  <view class="qs-page notice-page">
     <view class="action-bar">
       <text class="action-btn" @click="markAllRead">全部已读</text>
       <text class="action-btn danger" @click="clearAll">清空</text>
     </view>
 
-    <view v-if="notifications.length === 0" class="empty-state">
-      <u-icon name="bell" color="#d1d5db" size="48"></u-icon>
-      <text class="empty-text">暂无消息</text>
+    <view v-if="notifications.length === 0" class="qs-glass qs-empty">
+      <u-icon name="bell" color="#4C6B5C" size="46"></u-icon>
+      <text style="margin-top: 16rpx;">暂无消息</text>
     </view>
 
     <view v-else class="notification-list">
       <view
         v-for="item in notifications"
         :key="item._id"
-        class="notification-item"
+        class="notification-item qs-glass"
         :class="{ unread: !item.isRead }"
         @click="handleNotificationClick(item)"
       >
@@ -90,23 +90,19 @@ export default {
   },
   methods: {
     async loadNotifications() {
+      uni.showLoading({ title: '加载中...', mask: true })
       try {
         await ensureLogin()
-        const userInfo = uni.getStorageSync('userInfo')
+        const userInfo = uni.getStorageSync('userInfo') || {}
         let list = []
         if (userInfo.phone) {
-          list = await queryAllDocs('notifications', {
-            userId: userInfo.phone
-          })
+          list = await queryAllDocs('notifications', { userId: userInfo.phone })
         }
         if (list.length === 0 && userInfo.username) {
-          const legacyList = await queryAllDocs('notifications', {
-            userId: userInfo.username
-          })
-          list = list.concat(legacyList)
+          list = list.concat(await queryAllDocs('notifications', { userId: userInfo.username }))
         }
         const seen = new Set()
-        list = list.filter(n => {
+        list = list.filter((n) => {
           if (seen.has(n._id)) return false
           seen.add(n._id)
           return true
@@ -118,6 +114,8 @@ export default {
         })
       } catch (err) {
         console.error('加载通知失败:', err)
+      } finally {
+        uni.hideLoading()
       }
     },
     async handleNotificationClick(item) {
@@ -130,13 +128,11 @@ export default {
         }
       }
       if (item.groupId) {
-        uni.navigateTo({
-          url: '/pkg-group/index?id=' + item.groupId
-        })
+        uni.navigateTo({ url: '/pkg-group/index?id=' + item.groupId })
       }
     },
     async markAllRead() {
-      const unread = this.notifications.filter(n => !n.isRead)
+      const unread = this.notifications.filter((n) => !n.isRead)
       if (unread.length === 0) {
         uni.showToast({ title: '没有未读消息', icon: 'none' })
         return
@@ -144,13 +140,13 @@ export default {
       try {
         const result = await cloudMarkAllRead()
         if (result.success) {
-          this.notifications.forEach(n => { n.isRead = true })
+          this.notifications.forEach((n) => { n.isRead = true })
           uni.showToast({ title: '已全部标记为已读', icon: 'success' })
         } else {
           for (const item of unread) {
             await cloudUpdateDoc('notifications', item._id, { isRead: true })
           }
-          this.notifications.forEach(n => { n.isRead = true })
+          this.notifications.forEach((n) => { n.isRead = true })
           uni.showToast({ title: '已全部标记为已读', icon: 'success' })
         }
       } catch (err) {
@@ -160,7 +156,7 @@ export default {
     },
     async clearAll() {
       if (this.notifications.length === 0) return
-      const res = await new Promise(resolve => {
+      const res = await new Promise((resolve) => {
         uni.showModal({
           title: '确认清空',
           content: '确定要清空所有消息吗？',
@@ -205,69 +201,60 @@ export default {
 </script>
 
 <style scoped>
-.page-container {
-  min-height: 100vh;
-  background-color: #F8FAFC;
+.notice-page {
+  padding-top: 20rpx;
   padding-bottom: 40rpx;
 }
 
 .action-bar {
   display: flex;
   justify-content: flex-end;
-  gap: 24px;
-  padding: 16px 20px;
+  gap: 22rpx;
+  padding: 8rpx 6rpx 22rpx;
 }
 
 .action-btn {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 24rpx;
+  color: #b8ccc2;
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
 }
 
 .action-btn.danger {
-  color: #ef4444;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 120px 0;
-}
-
-.empty-text {
-  margin-top: 16px;
-  font-size: 14px;
-  color: #9ca3af;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.28);
 }
 
 .notification-list {
-  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
 }
 
 .notification-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  background-color: white;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 24rpx;
   position: relative;
-  box-sizing: border-box;
 }
 
 .notification-item.unread {
-  background-color: #f0fdf4;
+  border-color: rgba(233, 196, 106, 0.35);
+  background: linear-gradient(160deg, rgba(233, 196, 106, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
 }
 
 .notification-dot {
-  width: 8px;
-  height: 8px;
+  width: 14rpx;
+  height: 14rpx;
   border-radius: 50%;
-  background-color: #22C55E;
-  margin-top: 6px;
+  background: #e9c46a;
+  box-shadow: 0 0 12rpx rgba(233, 196, 106, 0.9);
+  margin-top: 8rpx;
   flex-shrink: 0;
+  margin-right: 14rpx;
 }
 
 .notification-content {
@@ -276,33 +263,34 @@ export default {
 
 .notification-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
 }
 
 .notification-type {
-  font-size: 12px;
-  color: #22C55E;
-  font-weight: 500;
+  font-size: 22rpx;
+  color: #f2d98f;
+  font-weight: 600;
 }
 
 .notification-time {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 21rpx;
+  color: #6e8c7f;
 }
 
 .notification-title {
-  font-size: 15px;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 4px;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #f4fbf7;
+  margin-bottom: 8rpx;
   display: block;
 }
 
 .notification-desc {
-  font-size: 13px;
-  color: #6b7280;
+  font-size: 24rpx;
+  color: #8aa79b;
   display: block;
+  line-height: 1.5;
 }
 </style>

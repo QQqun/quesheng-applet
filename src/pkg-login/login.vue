@@ -1,44 +1,46 @@
 <template>
-  <view class="login-container">
+  <view class="login-page">
+    <view class="login-bg-glow"></view>
     <view class="login-card">
-      <view class="logo-box">
-        <u-icon name="account-fill" color="#ffffff" size="60"></u-icon>
+      <view class="logo-tile">
+        <text class="logo-text">雀</text>
       </view>
-      <view class="title">积分助手</view>
-      <view class="subtitle">
-        请输入手机号和密码登录
-      </view>
-      
+      <text class="title">雀圣积分</text>
+      <text class="subtitle">轻松记录每一场，积分一目了然</text>
+
       <view class="form-container">
         <view class="input-item">
-          <u-icon name="phone-fill" color="#9ca3af" size="20"></u-icon>
-          <u-input 
-            v-model="phone" 
-            placeholder="请输入手机号" 
+          <u-icon name="phone-fill" color="#34D399" size="20"></u-icon>
+          <u-input
+            v-model="phone"
+            placeholder="请输入手机号"
             type="number"
             maxlength="11"
             :border="false"
             clearable
-            style="flex: 1; margin-left: 12px;"
+            color="#F4FBF7"
+            placeholderStyle="color:#5E7A6C"
+            style="flex: 1; margin-left: 16rpx;"
           ></u-input>
         </view>
-        
+
         <view class="input-item">
-          <u-icon name="lock-fill" color="#9ca3af" size="20"></u-icon>
-          <u-input 
-            v-model="password" 
-            placeholder="请输入密码" 
+          <u-icon name="lock-fill" color="#E9C46A" size="20"></u-icon>
+          <u-input
+            v-model="password"
+            placeholder="请输入密码"
             :border="false"
             :password="true"
             clearable
-            style="flex: 1; margin-left: 12px;"
+            color="#F4FBF7"
+            placeholderStyle="color:#5E7A6C"
+            style="flex: 1; margin-left: 16rpx;"
           ></u-input>
         </view>
       </view>
-      
-      <button class="auth-btn" @click="handleLogin" :loading="loading">
-        登录
-      </button>
+
+      <button class="auth-btn" @click="handleLogin" :loading="loading">登 录</button>
+      <text class="tip">新手机号登录将自动注册账号</text>
     </view>
   </view>
 </template>
@@ -84,26 +86,17 @@ export default {
   methods: {
     async handleLogin() {
       if (!this.phone.trim()) {
-        uni.showToast({
-          title: '请输入手机号',
-          icon: 'none'
-        })
+        uni.showToast({ title: '请输入手机号', icon: 'none' })
         return
       }
 
       if (!isValidPhone(this.phone.trim())) {
-        uni.showToast({
-          title: '请输入正确的手机号',
-          icon: 'none'
-        })
+        uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
         return
       }
-      
+
       if (!this.password.trim()) {
-        uni.showToast({
-          title: '请输入密码',
-          icon: 'none'
-        })
+        uni.showToast({ title: '请输入密码', icon: 'none' })
         return
       }
 
@@ -128,10 +121,7 @@ export default {
         if (existingUsers.length > 0) {
           const cloudUser = existingUsers[0]
           if (cloudUser.password !== passwordMd5) {
-            uni.showToast({
-              title: '手机号或密码错误',
-              icon: 'none'
-            })
+            uni.showToast({ title: '手机号或密码错误', icon: 'none' })
             return
           }
           const userInfo = {
@@ -139,9 +129,7 @@ export default {
             nickName: cloudUser.nickName || cloudUser.nickname || '',
             avatarUrl: cloudUser.avatarUrl || DEFAULT_AVATAR
           }
-          await updateDoc('users', cloudUser._id, {
-            lastLoginTime: dayjs().toDate()
-          })
+          await updateDoc('users', cloudUser._id, { lastLoginTime: dayjs().toDate() })
           uni.setStorageSync('userInfo', userInfo)
         } else {
           const confirmResult = await new Promise((resolve) => {
@@ -168,22 +156,14 @@ export default {
 
         uni.setStorageSync('token', 'cloudbase-token-' + dayjs().valueOf())
 
-        uni.showToast({
-          title: '登录成功',
-          icon: 'success'
-        })
+        uni.showToast({ title: '登录成功', icon: 'success' })
 
         setTimeout(() => {
-          uni.switchTab({
-            url: '/pages/index/index'
-          })
+          uni.switchTab({ url: '/pages/index/index' })
         }, 1000)
       } catch (err) {
         console.error('登录失败:', err)
-        uni.showToast({
-          title: '登录失败，请重试',
-          icon: 'none'
-        })
+        uni.showToast({ title: '登录失败，请重试', icon: 'none' })
       } finally {
         this.loading = false
       }
@@ -193,94 +173,115 @@ export default {
 </script>
 
 <style scoped>
-.login-container {
+.login-page {
   min-height: 100vh;
-  background-color: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 48rpx;
   box-sizing: border-box;
+  background:
+    radial-gradient(120% 60% at 20% 0%, rgba(52, 211, 153, 0.2) 0%, rgba(6, 18, 14, 0) 55%),
+    radial-gradient(90% 45% at 100% 10%, rgba(233, 196, 106, 0.14) 0%, rgba(6, 18, 14, 0) 60%),
+    linear-gradient(180deg, #0a2018 0%, #06120e 60%, #040c09 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-bg-glow {
+  position: absolute;
+  bottom: -160rpx;
+  left: -120rpx;
+  width: 520rpx;
+  height: 520rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.18) 0%, rgba(52, 211, 153, 0) 70%);
+  pointer-events: none;
 }
 
 .login-card {
   width: 100%;
-  height: 100vh;
-  background-color: #ffffff;
-  overflow: hidden;
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
+  position: relative;
+  z-index: 2;
 }
 
-.logo-box {
-  width: 96px;
-  height: 96px;
-  background-color: #22C55E;
-  border-radius: 16px;
+.logo-tile {
+  width: 132rpx;
+  height: 168rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.06));
+  border: 2rpx solid rgba(233, 196, 106, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px;
+  box-shadow: 0 24rpx 60rpx -24rpx rgba(233, 196, 106, 0.65), inset 0 0 30rpx rgba(255, 255, 255, 0.16);
+  margin-bottom: 30rpx;
+}
+
+.logo-text {
+  font-size: 68rpx;
+  font-weight: 800;
+  color: #fff5d6;
+  text-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.3);
 }
 
 .title {
-  font-size: 24px;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 16px;
+  font-size: 46rpx;
+  font-weight: 800;
+  color: #fff9e8;
+  letter-spacing: 4rpx;
 }
 
 .subtitle {
-  text-align: center;
-  color: #6b7280;
-  font-size: 14px;
-  line-height: 1.625;
-  margin-bottom: 40px;
-  padding-left: 16px;
-  padding-right: 16px;
+  font-size: 24rpx;
+  color: #8aa79b;
+  margin: 14rpx 0 56rpx;
 }
 
 .form-container {
-  width: 686rpx;
-  margin-bottom: 32px;
+  width: 100%;
+  margin-bottom: 34rpx;
 }
 
 .input-item {
   display: flex;
   align-items: center;
-  background-color: #f9fafb;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  border-radius: 22rpx;
+  padding: 26rpx 26rpx;
+  margin-bottom: 20rpx;
   box-sizing: border-box;
 }
 
 .auth-btn {
-  width: 686rpx;
-  background-color: #22C55E;
-  color: white;
-  padding-top: 16px;
-  padding-bottom: 16px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-weight: 500;
-  font-size: 16px;
-  line-height: 1.5;
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #e9c46a 0%, #f2d98f 100%);
+  color: #05130d;
+  font-size: 32rpx;
+  font-weight: 800;
+  letter-spacing: 6rpx;
+  border: none;
+  box-shadow: 0 18rpx 40rpx -18rpx rgba(233, 196, 106, 0.7);
 }
+
+.auth-btn::after {
+  border: none;
+}
+
 .auth-btn:active {
   opacity: 0.9;
 }
 
-.footer-text {
-  position: absolute;
-  bottom: 40px;
-  font-size: 12px;
-  color: #9ca3af;
+.tip {
+  font-size: 22rpx;
+  color: #5e7a6c;
+  margin-top: 26rpx;
 }
 </style>

@@ -1,22 +1,39 @@
 <template>
-  <view class="page-container">
-    <view class="section">
-      <view class="section-title">头像</view>
+  <view class="qs-page profile-page">
+    <view class="section-head">
+      <text class="qs-section-title">头像</text>
+    </view>
+    <view class="qs-glass section">
       <view class="avatar-row" @click="chooseAvatar">
-        <image :src="avatarUrl" class="avatar-preview" mode="aspectFill"></image>
-        <u-icon name="arrow-right" color="#9ca3af" size="16"></u-icon>
+        <view class="avatar-ring">
+          <image :src="avatarUrl" class="avatar-preview" mode="aspectFill"></image>
+        </view>
+        <view class="avatar-hint">
+          <text class="hint-title">更换头像</text>
+          <text class="hint-sub">点击选择图片</text>
+        </view>
+        <u-icon name="arrow-right" color="#8AA79B" size="16"></u-icon>
       </view>
     </view>
 
-    <view class="section">
-      <view class="section-title">基本信息</view>
+    <view class="section-head">
+      <text class="qs-section-title">基本信息</text>
+    </view>
+    <view class="qs-glass section">
+      <text class="label">昵称</text>
       <view class="input-item">
-        <u-input v-model="nickname" placeholder="请输入昵称" border="surround" clearable></u-input>
+        <u-input v-model="nickname" placeholder="请输入昵称" border="none" clearable color="#F4FBF7" placeholderStyle="color:#5E7A6C"></u-input>
       </view>
+      <text class="label">手机号</text>
       <view class="input-item readonly-field">
-        <u-input v-model="phone" placeholder="手机号" type="number" border="surround" :disabled="true"></u-input>
+        <u-input v-model="phone" placeholder="手机号" type="number" border="none" :disabled="true" color="#8AA79B"></u-input>
       </view>
-      <u-button text="保存信息" type="primary" color="#22C55E" @click="saveProfile" :loading="savingProfile"></u-button>
+      <u-button
+        text="保存信息"
+        @click="saveProfile"
+        :loading="savingProfile"
+        customStyle="margin-top:12rpx;height:88rpx;border-radius:999rpx;background:linear-gradient(135deg,#E9C46A,#F2D98F);color:#05130D;font-weight:700;border:none;"
+      ></u-button>
     </view>
   </view>
 </template>
@@ -93,9 +110,7 @@ export default {
         const userInfo = uni.getStorageSync('userInfo') || {}
         const oldNickName = userInfo.nickName || ''
         userInfo.nickName = newNickName
-        if (this.phone) {
-          userInfo.phone = this.phone
-        }
+        if (this.phone) userInfo.phone = this.phone
         uni.setStorageSync('userInfo', userInfo)
 
         if (oldNickName !== newNickName && this.phone) {
@@ -129,7 +144,7 @@ export default {
         const allScores = await this.cloudQueryAll('scores', { 'users.phone': phone })
         for (const scoreRecord of allScores) {
           let needUpdate = false
-          const updatedUsers = (scoreRecord.users || []).map(user => {
+          const updatedUsers = (scoreRecord.users || []).map((user) => {
             if (user.phone === phone && user.name !== newName) {
               needUpdate = true
               return { ...user, name: newName }
@@ -201,48 +216,76 @@ export default {
 </script>
 
 <style scoped>
-.page-container {
-  width: 100%;
-  min-height: 100vh;
-  background-color: #f8fafc;
-  padding: 20px 16px;
-  box-sizing: border-box;
+.profile-page {
+  padding-top: 28rpx;
+}
+
+.section-head {
+  padding: 0 6rpx 16rpx;
 }
 
 .section {
-  background-color: white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-sizing: border-box;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 16px;
+  padding: 26rpx 24rpx;
+  margin-bottom: 28rpx;
 }
 
 .avatar-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+}
+
+.avatar-ring {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  padding: 5rpx;
+  background: linear-gradient(135deg, rgba(233, 196, 106, 0.85), rgba(52, 211, 153, 0.85));
+  box-sizing: border-box;
+  margin-right: 22rpx;
 }
 
 .avatar-preview {
-  width: 64px;
-  height: 64px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  background-color: #e5e7eb;
-  border: 1px solid #f3f4f6;
+  background: #0c241b;
+}
+
+.avatar-hint {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.hint-title {
+  font-size: 27rpx;
+  font-weight: 600;
+  color: #f4fbf7;
+  margin-bottom: 6rpx;
+}
+
+.hint-sub {
+  font-size: 21rpx;
+  color: #8aa79b;
+}
+
+.label {
+  display: block;
+  font-size: 22rpx;
+  color: #8aa79b;
+  margin-bottom: 10rpx;
+  padding-left: 4rpx;
 }
 
 .input-item {
-  margin-bottom: 16px;
+  padding: 20rpx 22rpx;
+  border-radius: 18rpx;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 22rpx;
 }
 
 .readonly-field :deep(.u-input__input) {
-  color: #9ca3af !important;
+  color: #8aa79b !important;
 }
 </style>

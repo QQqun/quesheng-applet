@@ -1,17 +1,28 @@
 <template>
-  <view class="page-container">
-    <view class="section">
-      <view class="section-title">修改密码</view>
-      <view class="input-item">
-        <u-input v-model="oldPassword" placeholder="请输入旧密码" type="password" border="surround" clearable></u-input>
+  <view class="qs-page pwd-page">
+    <view class="qs-glass section">
+      <view class="section-head">
+        <text class="qs-section-title">修改密码</text>
+        <text class="qs-sub">为了账号安全，请设置至少 6 位密码</text>
       </view>
       <view class="input-item">
-        <u-input v-model="newPassword" placeholder="请输入新密码" type="password" border="surround" clearable></u-input>
+        <u-icon name="lock-fill" size="18" color="#34D399"></u-icon>
+        <u-input v-model="oldPassword" placeholder="请输入旧密码" type="password" border="none" clearable color="#F4FBF7" placeholderStyle="color:#5E7A6C" style="flex:1;margin-left:16rpx;"></u-input>
       </view>
       <view class="input-item">
-        <u-input v-model="confirmPassword" placeholder="请确认新密码" type="password" border="surround" clearable></u-input>
+        <u-icon name="lock-fill" size="18" color="#E9C46A"></u-icon>
+        <u-input v-model="newPassword" placeholder="请输入新密码" type="password" border="none" clearable color="#F4FBF7" placeholderStyle="color:#5E7A6C" style="flex:1;margin-left:16rpx;"></u-input>
       </view>
-      <u-button text="修改密码" type="primary" color="#22C55E" @click="changePassword" :loading="changingPwd"></u-button>
+      <view class="input-item">
+        <u-icon name="lock-fill" size="18" color="#E9C46A"></u-icon>
+        <u-input v-model="confirmPassword" placeholder="请确认新密码" type="password" border="none" clearable color="#F4FBF7" placeholderStyle="color:#5E7A6C" style="flex:1;margin-left:16rpx;"></u-input>
+      </view>
+      <u-button
+        text="确认修改"
+        @click="changePassword"
+        :loading="changingPwd"
+        customStyle="margin-top:14rpx;height:88rpx;border-radius:999rpx;background:linear-gradient(135deg,#E9C46A,#F2D98F);color:#05130D;font-weight:700;border:none;"
+      ></u-button>
     </view>
   </view>
 </template>
@@ -107,30 +118,30 @@ export default {
 </script>
 
 <style scoped>
-.page-container {
-  width: 100%;
-  min-height: 100vh;
-  background-color: #f8fafc;
-  padding: 20px 16px;
-  box-sizing: border-box;
+.pwd-page {
+  padding-top: 28rpx;
 }
 
 .section {
-  background-color: white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-sizing: border-box;
+  padding: 30rpx 26rpx;
 }
 
-.section-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 16px;
+.section-head {
+  margin-bottom: 26rpx;
+}
+
+.section-head .qs-sub {
+  display: block;
+  margin-top: 8rpx;
 }
 
 .input-item {
-  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  padding: 24rpx 24rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 20rpx;
 }
 </style>

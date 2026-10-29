@@ -81,16 +81,16 @@
 		"pageOrientation": "portrait",
 		"navigationBarTitleText": "雀圣小程序",
 		"navigationBarTextStyle": "white",
-		"navigationBarBackgroundColor": "#22C55E",
-		"backgroundColor": "#F8F8F8",
-		"backgroundColorTop": "#F4F5F6",
-		"backgroundColorBottom": "#F4F5F6"
+		"navigationBarBackgroundColor": "#071A13",
+		"backgroundColor": "#06120E",
+		"backgroundColorTop": "#0A2018",
+		"backgroundColorBottom": "#040C09"
 	},
 	"tabBar": {
-		"color": "#7A7E83",
-		"selectedColor": "#22C55E",
+		"color": "#7E9C8E",
+		"selectedColor": "#34D399",
 		"borderStyle": "black",
-		"backgroundColor": "#F8F8F8",
+		"backgroundColor": "#0A1F17",
 		"list": [{
 				"pagePath": "pages/index/index",
 				"iconPath": "static/tab/home_not_select.png",
